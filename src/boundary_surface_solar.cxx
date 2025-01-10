@@ -44,9 +44,15 @@
 #include "monin_obukhov.h"
 #include "fast_math.h"
 
+// additions Sarah
+#include <iomanip> //unnecessary?
+#include "thermo_moist_functions.h"
+
+
 namespace
 {
     // Make a shortcut in the file scope.
+    namespace tmf = Thermo_moist_functions; //Sarah
     namespace most = Monin_obukhov;
     namespace fm = Fast_math;
     namespace bsk = Boundary_surface_kernels;
@@ -374,7 +380,7 @@ Boundary_surface_solar<TF>::Boundary_surface_solar(
         Fields<TF>& fieldsin, Input& inputin) :
         Boundary<TF>(masterin, gridin, soilgridin, fieldsin, inputin)
 {
-    swboundary = "surface";
+    swboundary = "surface_solar";
 
     #ifdef USECUDA
     ustar_g = 0;
