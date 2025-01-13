@@ -7,3 +7,6 @@
 *.yaml
 *.make
 *.o
+*.a
+build/main/CMakeFiles/microhh.dir/microhh.cxx.o
+build/src/CMakeFiles/microhhc.dir/boundary.cxx.o
