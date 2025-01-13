@@ -33,7 +33,7 @@
 #include "fields.h"
 #include "diff.h"
 #include "boundary.h"
-#include "boundary_surface.h"
+#include "boundary_surface_solar.h"
 #include "boundary_surface_kernels.h"
 #include "defines.h"
 #include "constants.h"
@@ -369,7 +369,7 @@ namespace
 }
 
 template<typename TF>
-Boundary_surface<TF>::Boundary_surface(
+Boundary_surface_solar<TF>::Boundary_surface_solar(
         Master& masterin, Grid<TF>& gridin, Soil_grid<TF>& soilgridin,
         Fields<TF>& fieldsin, Input& inputin) :
         Boundary<TF>(masterin, gridin, soilgridin, fieldsin, inputin)
@@ -386,12 +386,12 @@ Boundary_surface<TF>::Boundary_surface(
 }
 
 template<typename TF>
-Boundary_surface<TF>::~Boundary_surface()
+Boundary_surface_solar<TF>::~Boundary_surface_solar()
 {
 }
 
 template<typename TF>
-void Boundary_surface<TF>::create(
+void Boundary_surface_solar<TF>::create(
         Input& input, Netcdf_handle& input_nc,
         Stats<TF>& stats, Column<TF>& column,
         Cross<TF>& cross, Timeloop<TF>& timeloop)
@@ -440,12 +440,12 @@ void Boundary_surface<TF>::create(
 }
 
 template<typename TF>
-void Boundary_surface<TF>::create_cold_start(Netcdf_handle& input_nc)
+void Boundary_surface_solar<TF>::create_cold_start(Netcdf_handle& input_nc)
 {
 }
 
 template<typename TF>
-void Boundary_surface<TF>::init(Input& inputin, Thermo<TF>& thermo, const Sim_mode sim_mode)
+void Boundary_surface_solar<TF>::init(Input& inputin, Thermo<TF>& thermo, const Sim_mode sim_mode)
 {
     // 1. Process the boundary conditions now all fields are registered.
     process_bcs(inputin);
@@ -468,7 +468,7 @@ void Boundary_surface<TF>::init(Input& inputin, Thermo<TF>& thermo, const Sim_mo
 }
 
 template<typename TF>
-void Boundary_surface<TF>::process_input(Input& inputin, Thermo<TF>& thermo)
+void Boundary_surface_solar<TF>::process_input(Input& inputin, Thermo<TF>& thermo)
 {
     // Switch between heterogeneous and homogeneous z0's
     sw_constant_z0 = inputin.get_item<bool>("boundary", "swconstantz0", "", true);
@@ -541,7 +541,7 @@ void Boundary_surface<TF>::process_input(Input& inputin, Thermo<TF>& thermo)
 }
 
 template<typename TF>
-void Boundary_surface<TF>::init_surface(Input& input, Thermo<TF>& thermo)
+void Boundary_surface_solar<TF>::init_surface(Input& input, Thermo<TF>& thermo)
 {
     auto& gd = grid.get_grid_data();
 
@@ -581,7 +581,7 @@ void Boundary_surface<TF>::init_surface(Input& input, Thermo<TF>& thermo)
 }
 
 template<typename TF>
-void Boundary_surface<TF>::load(const int iotime, Thermo<TF>& thermo)
+void Boundary_surface_solar<TF>::load(const int iotime, Thermo<TF>& thermo)
 {
     auto tmp1 = fields.get_tmp();
     int nerror = 0;
@@ -642,7 +642,7 @@ void Boundary_surface<TF>::load(const int iotime, Thermo<TF>& thermo)
 }
 
 template<typename TF>
-void Boundary_surface<TF>::save(const int iotime, Thermo<TF>& thermo)
+void Boundary_surface_solar<TF>::save(const int iotime, Thermo<TF>& thermo)
 {
     auto tmp1 = fields.get_tmp();
     int nerror = 0;
@@ -692,7 +692,7 @@ void Boundary_surface<TF>::save(const int iotime, Thermo<TF>& thermo)
 }
 
 template<typename TF>
-void Boundary_surface<TF>::exec_cross(Cross<TF>& cross, unsigned long iotime)
+void Boundary_surface_solar<TF>::exec_cross(Cross<TF>& cross, unsigned long iotime)
 {
     auto& gd = grid.get_grid_data();
     auto tmp1 = fields.get_tmp();
@@ -722,7 +722,7 @@ void Boundary_surface<TF>::exec_cross(Cross<TF>& cross, unsigned long iotime)
 }
 
 template<typename TF>
-void Boundary_surface<TF>::exec_stats(Stats<TF>& stats)
+void Boundary_surface_solar<TF>::exec_stats(Stats<TF>& stats)
 {
     const TF no_offset = 0.;
     stats.calc_stats_2d("obuk", obuk, no_offset);
@@ -737,7 +737,7 @@ void Boundary_surface<TF>::exec_stats(Stats<TF>& stats)
 
 #ifndef USECUDA
 template<typename TF>
-void Boundary_surface<TF>::exec_column(Column<TF>& column)
+void Boundary_surface_solar<TF>::exec_column(Column<TF>& column)
 {
     const TF no_offset = 0.;
     column.calc_time_series("obuk", obuk.data(), no_offset);
@@ -752,7 +752,7 @@ void Boundary_surface<TF>::exec_column(Column<TF>& column)
 #endif
 
 template<typename TF>
-void Boundary_surface<TF>::set_values()
+void Boundary_surface_solar<TF>::set_values()
 {
     auto& gd = grid.get_grid_data();
 
@@ -786,7 +786,7 @@ void Boundary_surface<TF>::set_values()
 }
 
 template<typename TF>
-void Boundary_surface<TF>::set_ustar()
+void Boundary_surface_solar<TF>::set_ustar()
 {
     auto& gd = grid.get_grid_data();
     const int jj = gd.icells;
@@ -817,7 +817,7 @@ void Boundary_surface<TF>::set_ustar()
 
 // Prepare the surface layer solver.
 template<typename TF>
-void Boundary_surface<TF>::init_solver()
+void Boundary_surface_solar<TF>::init_solver()
 {
     auto& gd = grid.get_grid_data();
 
@@ -834,7 +834,7 @@ void Boundary_surface<TF>::init_solver()
 
 #ifndef USECUDA
 template<typename TF>
-void Boundary_surface<TF>::exec(
+void Boundary_surface_solar<TF>::exec(
         Thermo<TF>& thermo, Radiation<TF>& radiation,
         Microphys<TF>& microphys, Timeloop<TF>& timeloop)
 {
@@ -991,7 +991,7 @@ void Boundary_surface<TF>::exec(
 #endif
 
 template<typename TF>
-void Boundary_surface<TF>::update_slave_bcs()
+void Boundary_surface_solar<TF>::update_slave_bcs()
 {
     // This function does nothing when the surface model is enabled, because
     // the fields are computed by the surface model in update_bcs.
@@ -999,7 +999,7 @@ void Boundary_surface<TF>::update_slave_bcs()
 
 
 #ifdef FLOAT_SINGLE
-template class Boundary_surface<float>;
+template class Boundary_surface_solar<float>;
 #else
-template class Boundary_surface<double>;
+template class Boundary_surface_solar<double>;
 #endif

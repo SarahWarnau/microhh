@@ -44,6 +44,7 @@
 #include "boundary_surface.h"
 #include "boundary_surface_bulk.h"
 #include "boundary_surface_lsm.h"
+#include "boundary_surface_solar.h"
 
 namespace
 {

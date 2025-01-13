@@ -20,8 +20,8 @@
  * along with MicroHH.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef BOUNDARY_SURFACE_H
-#define BOUNDARY_SURFACE_H
+#ifndef BOUNDARY_SURFACE_SOLAR_H
+#define BOUNDARY_SURFACE_SOLAR_H
 
 #include "boundary.h"
 #include "stats.h"
@@ -29,11 +29,11 @@
 template<typename> class Diff;
 
 template<typename TF>
-class Boundary_surface : public Boundary<TF>
+class Boundary_surface_solar : public Boundary<TF>
 {
     public:
-        Boundary_surface(Master&, Grid<TF>&, Soil_grid<TF>&, Fields<TF>&, Input&);
-        ~Boundary_surface();
+        Boundary_surface_solar(Master&, Grid<TF>&, Soil_grid<TF>&, Fields<TF>&, Input&);
+        ~Boundary_surface_solar();
 
         void init(Input&, Thermo<TF>&, const Sim_mode);
         void create_cold_start(Netcdf_handle&);
