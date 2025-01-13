@@ -1,0 +1,1 @@
+/usr/bin/g++ -std=c++17 -O3 -march=native CMakeFiles/microhh.dir/microhh.cxx.o -o ../microhh  ../src/libmicrohhc.a ../rte-rrtmgp-cpp/src_kernels/librte_rrtmgp_kernels.a ../rte-rrtmgp-cpp/src/librte_rrtmgp.a -lfftw3 -lfftw3f -lnetcdf -lhdf5_serial -lm ../rte-rrtmgp-cpp/src_kernels/librte_rrtmgp_kernels.a -lgfortran -lquadmath 
