@@ -20,6 +20,9 @@
  * along with MicroHH.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef BOUNDARY_SURFACE_SOLAR_H
+#define BOUNDARY_SURFACE_SOLAR_H
+
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -48,8 +51,6 @@
 #include <iomanip> //unnecessary?
 #include "thermo_moist_functions.h"
 // Content from boundary_surface_solar.h
-#ifndef BOUNDARY_SURFACE_SOLAR_H
-#define BOUNDARY_SURFACE_SOLAR_H
 
 #include "boundary.h"
 #include "stats.h"
