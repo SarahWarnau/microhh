@@ -1169,6 +1169,8 @@ std::shared_ptr<Boundary<TF>> Boundary<TF>::factory(
         return std::make_shared<Boundary_surface_bulk<TF>>(master, grid, soil_grid, fields, input);
     else if (swboundary == "surface_lsm")
         return std::make_shared<Boundary_surface_lsm<TF>>(master, grid, soil_grid, fields, input);
+    else if (swboundary == "surface_solar")
+        return std::make_shared<Boundary_surface_solar<TF>>(master, grid, soil_grid, fields, input);
     else
     {
         std::string msg = swboundary + " is an illegal value for swboundary";
