@@ -40,6 +40,9 @@ class Boundary_surface_solar : public Boundary<TF>
         void create(Input&, Netcdf_handle&, Stats<TF>&, Column<TF>&, Cross<TF>&, Timeloop<TF>&);
         void set_values();
 
+        // Solar evaporator surface values
+        void get_surface_values_solar();
+
         const std::vector<TF>& get_z0m()  const { return z0m; };
         const std::vector<TF>& get_dudz() const { return dudz_mo; }
         const std::vector<TF>& get_dvdz() const { return dvdz_mo; }
