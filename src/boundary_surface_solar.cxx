@@ -366,6 +366,48 @@ namespace
                 z0h[ij] = alpha_h * visc/ustar_lim;
             }
     }
+
+    template<typename TF>
+    void get_surface_values_solar(
+        // TF parameters
+        TF Rnetin,
+        TF T0, //(previous timestep T)
+        TF q0, //(specific humidity just above the surface)
+        TF Tatm, //(temperature of the atmosphere just above the surface)
+        TF rho_air, //(air density previous timestep)
+        TF cp, //(specific heat capacity of air)
+        TF ra, //(aerodynamic resistance, keep constant for now)
+        TF rs, //(surface resistance, constant, set to 0)
+
+    )
+    {
+        // Derived variables
+        TF varepsilon = Rd / Rv;
+        TF A = (varepsilon * 611.2) / p_surf;
+        TF B = 17.67 / (T0 - 29.65);
+        TF X = std::exp((T0 - 273.15) * B);
+        TF C = A * B * 243.5 / (T0 - 29.65);
+        TF D = (rho_air * Lv) / (ra + rs);
+        TF E = (rho_air * cp) / ra;
+
+        // Calculate T_tech
+        TF numerator = (
+            3 * epsilon * sigma * std::pow(T0, 4)
+            + D * ((C * T0 - A) * X + q)
+            + E * T_atm
+            + Rnetin
+        );
+        TF denominator = (
+            4 * epsilon * sigma * std::pow(T0, 3)
+            + C * D * X
+            + E
+        );
+        // Calculate T_tech (surface temperature evaporator)
+        TF T_tech = numerator / denominator;
+
+        // Calculate q_sat (surface specific humidity)
+        TF q_sat = A * X;
+    }
 }
 
 template<typename TF>
@@ -926,6 +968,20 @@ void Boundary_surface_solar<TF>::exec(
     }
 
     fields.release_tmp(dutot);
+
+    // Sarah: Add calculation surface fluxes first (as is done in "boundary_surface_lsm.cxx"?
+
+
+    // Sarah: Surface values
+
+    // From "boundary_surface_lsm.cxx"
+    //    // Surface values.
+    // get_tiled_mean(fields.sp.at("thl")->fld_bot, "thl_bot", TF(1));
+    // get_tiled_mean(fields.sp.at("qt")->fld_bot, "qt_bot", TF(1));
+
+    get_surface_values_solar();
+
+
 
     // Calculate the surface value, gradient and flux depending on the chosen boundary condition.
     // Momentum:
