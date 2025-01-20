@@ -95,6 +95,11 @@ class Boundary_surface_solar : public Boundary<TF>
 
         TF ustarin;
 
+        // Sarah: put parameter arrays here, for first tests
+        std::vector<TF> Rnetin;
+        std::vector<TF> ra;
+        std::vector<TF> rs;
+
         std::vector<float> zL_sl;
         std::vector<float> f_sl;
         std::vector<int> nobuk;
