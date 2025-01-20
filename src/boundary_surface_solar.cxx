@@ -367,18 +367,22 @@ namespace
             }
     }
 
+    // Sarah: make input parameters into arrays
+
     template<typename TF>
     void get_surface_values_solar(
-        // TF parameters
-        TF Rnetin,
-        TF T0, //(previous timestep T)
-        TF q0, //(specific humidity just above the surface)
-        TF Tatm, //(temperature of the atmosphere just above the surface)
-        TF rho_air, //(air density previous timestep)
+        // TF parameter
+        TF* Rnetin,
+        TF* T0, //(previous timestep T)
+        TF* q0, //(specific humidity just above the surface)
+        TF* Tatm, //(temperature of the atmosphere just above the surface)
+        TF* rho_air, //(air density previous timestep)
         TF cp, //(specific heat capacity of air)
         TF ra, //(aerodynamic resistance, keep constant for now)
         TF rs, //(surface resistance, constant, set to 0)
-
+        const int istart, const int iend,
+        const int jstart, const int jend,
+        const int icells
     )
     {
         // Derived variables
@@ -406,6 +410,7 @@ namespace
         TF T_tech = numerator / denominator;
 
         // Calculate q_sat (surface specific humidity)
+        // Use function from thermo.h instead of calculating it here
         TF q_sat = A * X;
     }
 }
@@ -882,6 +887,32 @@ void Boundary_surface_solar<TF>::exec(
 {
     auto& gd = grid.get_grid_data();
 
+    //Sarah: put parameter arrays here, for first tests
+    std::vector<TF> Rnetin(gd.ijcells);
+    for (int j=0; j<gd.jcells; j++)
+        for (int i=0; i<gd.icells; i++)
+        {
+            const int ij = i + j*gd.icells;
+            Rnetin[ij] = TF(1000.);
+        }
+
+    std::vector<TF> ra(gd.ijcells);
+    for (int j=0; j<gd.jcells; j++)
+        for (int i=0; i<gd.icells; i++)
+        {
+            const int ij = i + j*gd.icells;
+            ra[ij] = TF(50.);
+        }
+
+    std::vector<TF> rs(gd.ijcells);
+    for (int j=0; j<gd.jcells; j++)
+        for (int i=0; i<gd.icells; i++)
+        {
+            const int ij = i + j*gd.icells;
+            rs[ij] = TF(0.);
+        }
+    // 
+
     // Update roughness lengths when Charnock relation is used,
     // using friction velocity from previous time step (?).
     if (sw_charnock)
@@ -969,7 +1000,7 @@ void Boundary_surface_solar<TF>::exec(
 
     fields.release_tmp(dutot);
 
-    // Sarah: Add calculation surface fluxes first (as is done in "boundary_surface_lsm.cxx"?
+    // Sarah: Add calculation surface fluxes first (as is done in "boundary_surface_lsm.cxx")?
 
 
     // Sarah: Surface values
