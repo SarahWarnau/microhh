@@ -372,46 +372,62 @@ namespace
     template<typename TF>
     void get_surface_values_solar(
         // TF parameter
-        TF* Rnetin,
-        TF* T0, //(previous timestep T)
-        TF* q0, //(specific humidity just above the surface)
-        TF* Tatm, //(temperature of the atmosphere just above the surface)
+        TF* thl_fld_bot, //(potential temperature at the surface)
+        TF* qt_fld_bot, //(specific humidity at the surface)
+        TF* rnetin, //(net radiation at the surface)
+        TF* qatm, //(specific humidity just above the surface)
+        TF* tatm, //(temperature of the atmosphere just above the surface)
         TF* rho_air, //(air density previous timestep)
-        TF cp, //(specific heat capacity of air)
-        TF ra, //(aerodynamic resistance, keep constant for now)
-        TF rs, //(surface resistance, constant, set to 0)
+        TF* p_surf, //(surface pressure)
+        TF* ra, //(aerodynamic resistance, keep constant for now)
+        TF* rs, //(surface resistance, constant, set to 0)
+        const float epsilon, //(emissivity of the surface)
+        const float cp, //(specific heat capacity of air)
+        const float rd, //(specific gas constant for dry air)
+        const float rv, //(specific gas constant for water vapor)
         const int istart, const int iend,
         const int jstart, const int jend,
         const int icells
     )
     {
-        // Derived variables
-        TF varepsilon = Rd / Rv;
-        TF A = (varepsilon * 611.2) / p_surf;
-        TF B = 17.67 / (T0 - 29.65);
-        TF X = std::exp((T0 - 273.15) * B);
-        TF C = A * B * 243.5 / (T0 - 29.65);
-        TF D = (rho_air * Lv) / (ra + rs);
-        TF E = (rho_air * cp) / ra;
+        for (int j=0; j<gd.jcells; j++)
+            for (int i=0; i<gd.icells; i++)
+            {
+                const int ij = i + j*gd.icells;
+                TF t0 = thl_fld_bot[ij]; //(previous timestep T)
 
-        // Calculate T_tech
-        TF numerator = (
-            3 * epsilon * sigma * std::pow(T0, 4)
-            + D * ((C * T0 - A) * X + q)
-            + E * T_atm
-            + Rnetin
-        );
-        TF denominator = (
-            4 * epsilon * sigma * std::pow(T0, 3)
-            + C * D * X
-            + E
-        );
-        // Calculate T_tech (surface temperature evaporator)
-        TF T_tech = numerator / denominator;
+                // Derived variables
+                TF varepsilon = rd / rv;
+                TF A = (varepsilon * 611.2) / p_surf[ij];
+                TF B = 17.67 / (t0 - 29.65);
+                TF X = std::exp((t0 - 273.15) * B);
+                TF C = A * B * 243.5 / (t0 - 29.65);
+                TF D = (rho_air * Lv) / (ra + rs);
+                TF E = (rho_air * cp) / ra;
 
-        // Calculate q_sat (surface specific humidity)
-        // Use function from thermo.h instead of calculating it here
-        TF q_sat = A * X;
+                // Calculate T_tech
+                TF numerator = (
+                    3 * epsilon * sigma * std::pow(t0, 4)
+                    + D * ((C * t0 - A) * X + qatm)
+                    + E * tatm
+                    + rnetin
+                );
+                TF denominator = (
+                    4 * epsilon * sigma * std::pow(t0, 3)
+                    + C * D * X
+                    + E
+                );
+                // Calculate T_tech (surface temperature evaporator)
+                TF T_tech = numerator / denominator;
+
+                // Calculate q_sat (surface specific humidity)
+                // Use function from thermo.h instead of calculating it here
+                TF q_sat = A * X;
+
+                thl_fld_bot[ij] = T_tech;
+                qt_fld_bot[ij] = q_sat;
+            }
+        
     }
 }
 
@@ -888,12 +904,12 @@ void Boundary_surface_solar<TF>::exec(
     auto& gd = grid.get_grid_data();
 
     //Sarah: put parameter arrays here, for first tests
-    std::vector<TF> Rnetin(gd.ijcells);
+    std::vector<TF> rnetin(gd.ijcells);
     for (int j=0; j<gd.jcells; j++)
         for (int i=0; i<gd.icells; i++)
         {
             const int ij = i + j*gd.icells;
-            Rnetin[ij] = TF(1000.);
+            rnetin[ij] = TF(1000.);
         }
 
     std::vector<TF> ra(gd.ijcells);
@@ -1000,18 +1016,45 @@ void Boundary_surface_solar<TF>::exec(
 
     fields.release_tmp(dutot);
 
-    // Sarah: Add calculation surface fluxes first (as is done in "boundary_surface_lsm.cxx")?
+
+    // Sarah: Surface values and fluxes are calculated in the surface model
+    // Calculate the surface values for the surface model
+    get_surface_values_solar(
+        fields.sp.at("thl")->fld_bot.data(),// TF* t0, //(previous timestep T)
+        fields.sp.at("qt")->fld.data(),     // TF* qatm, //(specific humidity just above the surface)
+        rnetin.data(),                      // TF* rnetin,
+        fields.sp.at("thl")->fld.data(),    // TF* tatm, //(temperature of the atmosphere just above the surface)
+        fields.mp.at("rho")->fld.data(),    // TF* rho_air, //(air density previous timestep)
+        fields.mp.at("p")->fld.data(),      // TF* p_surf, //(surface pressure)
+        ra.data(),                          // TF* ra, //(aerodynamic resistance, keep constant for now)
+        rs.data(),                          // TF* rs, //(surface resistance, constant, set to 0)
+        1.,                                 // const float epsilon, //(emissivity of the surface)
+        1004.,                              // const int cp, //(specific heat capacity of air)
+        287.05,                             // const float rd, //(specific gas constant for dry air)
+        461.5,                              // const float rv, //(specific gas constant for water vapor)
+        gd.istart, gd.iend,
+        gd.jstart, gd.jend,
+        gd.icells
+    );
 
 
-    // Sarah: Surface values
-
-    // From "boundary_surface_lsm.cxx"
-    //    // Surface values.
-    // get_tiled_mean(fields.sp.at("thl")->fld_bot, "thl_bot", TF(1));
-    // get_tiled_mean(fields.sp.at("qt")->fld_bot, "qt_bot", TF(1));
-
-    get_surface_values_solar();
-
+        // TF* thl_fld_bot,
+        // TF* qt_fld_bot,
+        // TF* rnetin,
+        // TF* qatm, //(specific humidity just above the surface)
+        // TF* tatm, //(temperature of the atmosphere just above the surface)
+        // TF* rho_air, //(air density previous timestep)
+        // TF* p_surf, //(surface pressure)
+        // TF* ra, //(aerodynamic resistance, keep constant for now)
+        // TF* rs, //(surface resistance, constant, set to 0)
+        // const float epsilon, //(emissivity of the surface)
+        // const float cp, //(specific heat capacity of air)
+        // const float rd, //(specific gas constant for dry air)
+        // const float rv, //(specific gas constant for water vapor)
+        // const int istart, const int iend,
+        // const int jstart, const int jend,
+        // const int icells
+    // Calculate the surface fluxes for the surface model for Dirichlet BC
 
 
     // Calculate the surface value, gradient and flux depending on the chosen boundary condition.
