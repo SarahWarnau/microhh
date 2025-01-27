@@ -374,35 +374,47 @@ namespace
         // TF parameter
         TF* thl_fld_bot, //(potential temperature at the surface)
         TF* qt_fld_bot, //(specific humidity at the surface)
-        TF* rnetin, //(net radiation at the surface)
-        TF* qatm, //(specific humidity just above the surface)
-        TF* tatm, //(temperature of the atmosphere just above the surface)
-        TF* rho_air, //(air density previous timestep)
-        TF* p_surf, //(surface pressure)
-        TF* ra, //(aerodynamic resistance, keep constant for now)
-        TF* rs, //(surface resistance, constant, set to 0)
+        TF* rnet_fld_bot, //(net radiation at the surface)
+        TF* thl_fld, //(temperature of the atmosphere just above the surface)
+        TF* qt_fld, //(specific humidity just above the surface)
+        TF* rho_air_fld, //(air density previous timestep)
+        TF* p_surf_fld, //(surface pressure)
+        TF* ra_fld, //(aerodynamic resistance, keep constant for now)
+        TF* rs_fld, //(surface resistance, constant, set to 0)
         const float epsilon, //(emissivity of the surface)
         const float cp, //(specific heat capacity of air)
         const float rd, //(specific gas constant for dry air)
         const float rv, //(specific gas constant for water vapor)
+        const float sigma, //(Stefan-Boltzmann constant)
+        const float lv, //(latent heat of vaporization)
         const int istart, const int iend,
         const int jstart, const int jend,
         const int icells
     )
     {
+        auto& gd = grid.get_grid_data();
+
         for (int j=0; j<gd.jcells; j++)
             for (int i=0; i<gd.icells; i++)
             {
                 const int ij = i + j*gd.icells;
                 TF t0 = thl_fld_bot[ij]; //(previous timestep T)
-
+                TF q0 = qt_fld_bot[ij];  //(specific humidity at the surface)
+                TF rnetin = rnet_fld_bot[ij]; //(net radiation at the surface)
+                TF tatm = thl_fld[ij];    //(temperature of the atmosphere just above the surface)
+                TF qatm = qt_fld[ij];     //(specific humidity just above the surface)
+                TF rho_air = rho_air_fld[ij]; //(air density previous timestep)
+                TF p_surf = p_surf_fld[ij];   //(surface pressure)
+                TF ra = ra_fld[ij];           //(aerodynamic resistance, keep constant for now)
+                TF rs = rs_fld[ij];           //(surface resistance, constant, set to 0)
+                
                 // Derived variables
                 TF varepsilon = rd / rv;
                 TF A = (varepsilon * 611.2) / p_surf[ij];
                 TF B = 17.67 / (t0 - 29.65);
                 TF X = std::exp((t0 - 273.15) * B);
                 TF C = A * B * 243.5 / (t0 - 29.65);
-                TF D = (rho_air * Lv) / (ra + rs);
+                TF D = (rho_air * lv) / (ra + rs);
                 TF E = (rho_air * cp) / ra;
 
                 // Calculate T_tech
@@ -1016,14 +1028,22 @@ void Boundary_surface_solar<TF>::exec(
 
     fields.release_tmp(dutot);
 
+    // Sarah: should I put the input parameters here like this?
+    // // Get (near-) surface thermo
+    // auto T_bot = fields.get_tmp_xy();
+    // auto T_a = fields.get_tmp_xy();
+    // auto vpd = fields.get_tmp_xy();
+    // auto qsat_bot = fields.get_tmp_xy();
+    // auto dqsatdT_bot = fields.get_tmp_xy();
 
     // Sarah: Surface values and fluxes are calculated in the surface model
     // Calculate the surface values for the surface model
     get_surface_values_solar(
         fields.sp.at("thl")->fld_bot.data(),// TF* t0, //(previous timestep T)
-        fields.sp.at("qt")->fld.data(),     // TF* qatm, //(specific humidity just above the surface)
+        fields.sp.at("qt")->fld_bot.data(),  // TF* q0 //(specific humidity at the surface)
         rnetin.data(),                      // TF* rnetin,
         fields.sp.at("thl")->fld.data(),    // TF* tatm, //(temperature of the atmosphere just above the surface)
+        fields.sp.at("qt")->fld.data(),     // TF* qatm, //(specific humidity just above the surface)
         fields.mp.at("rho")->fld.data(),    // TF* rho_air, //(air density previous timestep)
         fields.mp.at("p")->fld.data(),      // TF* p_surf, //(surface pressure)
         ra.data(),                          // TF* ra, //(aerodynamic resistance, keep constant for now)
@@ -1032,29 +1052,29 @@ void Boundary_surface_solar<TF>::exec(
         1004.,                              // const int cp, //(specific heat capacity of air)
         287.05,                             // const float rd, //(specific gas constant for dry air)
         461.5,                              // const float rv, //(specific gas constant for water vapor)
+        5.67e-8,                            // const float sigma, //(Stefan-Boltzmann constant)
+        2.5e6,                              // const float lv, //(latent heat of vaporization)
         gd.istart, gd.iend,
         gd.jstart, gd.jend,
         gd.icells
     );
 
-
-        // TF* thl_fld_bot,
-        // TF* qt_fld_bot,
-        // TF* rnetin,
-        // TF* qatm, //(specific humidity just above the surface)
-        // TF* tatm, //(temperature of the atmosphere just above the surface)
-        // TF* rho_air, //(air density previous timestep)
-        // TF* p_surf, //(surface pressure)
-        // TF* ra, //(aerodynamic resistance, keep constant for now)
-        // TF* rs, //(surface resistance, constant, set to 0)
-        // const float epsilon, //(emissivity of the surface)
-        // const float cp, //(specific heat capacity of air)
-        // const float rd, //(specific gas constant for dry air)
-        // const float rv, //(specific gas constant for water vapor)
-        // const int istart, const int iend,
-        // const int jstart, const int jend,
-        // const int icells
-    // Calculate the surface fluxes for the surface model for Dirichlet BC
+    // Calculate the surface fluxes for the surface model for Dirichlet BC similiar as in boundary_surface_lsm.cxx
+    // calc_fluxes_solar(
+    //     fields.mp.at("u")->flux_bot.data(),
+    //     fields.mp.at("v")->flux_bot.data(),
+    //     fields.mp.at("u")->grad_bot.data(),
+    //     fields.mp.at("v")->grad_bot.data(),
+    //     ustar.data(), obuk.data(),
+    //     fields.mp.at("u")->fld.data(),
+    //     fields.mp.at("u")->fld_bot.data(),
+    //     fields.mp.at("v")->fld.data(),
+    //     fields.mp.at("v")->fld_bot.data(),
+    //     z0m.data(), gd.z[gd.kstart], mbcbot,
+    //     gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart,
+    //     gd.icells, gd.jcells, gd.ijcells,
+    //     boundary_cyclic
+    // );
 
 
     // Calculate the surface value, gradient and flux depending on the chosen boundary condition.
