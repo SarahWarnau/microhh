@@ -381,23 +381,23 @@ namespace
         TF* p_surf_fld, //(surface pressure)
         TF* ra_fld, //(aerodynamic resistance, keep constant for now)
         TF* rs_fld, //(surface resistance, constant, set to 0)
-        const float epsilon, //(emissivity of the surface)
-        const float cp, //(specific heat capacity of air)
-        const float rd, //(specific gas constant for dry air)
-        const float rv, //(specific gas constant for water vapor)
-        const float sigma, //(Stefan-Boltzmann constant)
-        const float lv, //(latent heat of vaporization)
+        const TF epsilon, //(emissivity of the surface)
+        const TF cp, //(specific heat capacity of air)
+        const TF rd, //(specific gas constant for dry air)
+        const TF rv, //(specific gas constant for water vapor)
+        const TF sigma, //(Stefan-Boltzmann constant)
+        const TF lv, //(latent heat of vaporization)
         const int istart, const int iend,
         const int jstart, const int jend,
-        const int icells
+        const int icells, const int jcells
     )
     {
-        auto& gd = grid.get_grid_data();
+       
 
-        for (int j=0; j<gd.jcells; j++)
-            for (int i=0; i<gd.icells; i++)
+        for (int j=0; j<jcells; j++)
+            for (int i=0; i<icells; i++)
             {
-                const int ij = i + j*gd.icells;
+                const int ij = i + j*icells;
                 TF t0 = thl_fld_bot[ij]; //(previous timestep T)
                 TF q0 = qt_fld_bot[ij];  //(specific humidity at the surface)
                 TF rnetin = rnet_fld_bot[ij]; //(net radiation at the surface)
@@ -410,7 +410,7 @@ namespace
                 
                 // Derived variables
                 TF varepsilon = rd / rv;
-                TF A = (varepsilon * 611.2) / p_surf[ij];
+                TF A = (varepsilon * 611.2) / p_surf;
                 TF B = 17.67 / (t0 - 29.65);
                 TF X = std::exp((t0 - 273.15) * B);
                 TF C = A * B * 243.5 / (t0 - 29.65);
@@ -449,7 +449,7 @@ Boundary_surface_solar<TF>::Boundary_surface_solar(
         Fields<TF>& fieldsin, Input& inputin) :
         Boundary<TF>(masterin, gridin, soilgridin, fieldsin, inputin)
 {
-    swboundary = "surface";
+    swboundary = "surface_solar";
 
     #ifdef USECUDA
     ustar_g = 0;
@@ -1056,7 +1056,7 @@ void Boundary_surface_solar<TF>::exec(
         2.5e6,                              // const float lv, //(latent heat of vaporization)
         gd.istart, gd.iend,
         gd.jstart, gd.jend,
-        gd.icells
+        gd.icells, gd.jcells
     );
 
     // Calculate the surface fluxes for the surface model for Dirichlet BC similiar as in boundary_surface_lsm.cxx
