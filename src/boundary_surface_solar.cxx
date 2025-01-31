@@ -398,15 +398,15 @@ namespace
             for (int i=0; i<icells; i++)
             {
                 const int ij = i + j*icells;
-                TF t0 = thl_fld_bot[ij]; //(previous timestep T)
-                TF q0 = qt_fld_bot[ij];  //(specific humidity at the surface)
-                TF rnetin = rnet_fld_bot[ij]; //(net radiation at the surface)
-                TF tatm = thl_fld[ij];    //(temperature of the atmosphere just above the surface)
-                TF qatm = qt_fld[ij];     //(specific humidity just above the surface)
-                TF rho_air = rho_air_fld[ij]; //(air density previous timestep)
-                TF p_surf = p_surf_fld[ij];   //(surface pressure)
-                TF ra = ra_fld[ij];           //(aerodynamic resistance, keep constant for now)
-                TF rs = rs_fld[ij];           //(surface resistance, constant, set to 0)
+                TF t0 = thl_fld_bot[ij];        //(previous timestep T)
+                TF q0 = qt_fld_bot[ij];         //(specific humidity at the surface)
+                TF rnetin = rnet_fld_bot[ij];   //(net radiation at the surface)
+                TF tatm = thl_fld[ij];          //(temperature of the atmosphere just above the surface)
+                TF qatm = qt_fld[ij];           //(specific humidity just above the surface)
+                TF rho_air = rho_air_fld[ij];   //(air density previous timestep)
+                TF p_surf = p_surf_fld[ij];     //(surface pressure)
+                TF ra = ra_fld[ij];             //(aerodynamic resistance, keep constant for now)
+                TF rs = rs_fld[ij];             //(surface resistance, constant, set to 0)
                 
                 // Derived variables
                 TF varepsilon = rd / rv;
@@ -1044,8 +1044,8 @@ void Boundary_surface_solar<TF>::exec(
         rnetin.data(),                      // TF* rnetin,
         fields.sp.at("thl")->fld.data(),    // TF* tatm, //(temperature of the atmosphere just above the surface)
         fields.sp.at("qt")->fld.data(),     // TF* qatm, //(specific humidity just above the surface)
-        fields.mp.at("rho")->fld.data(),    // TF* rho_air, //(air density previous timestep)
-        fields.mp.at("p")->fld.data(),      // TF* p_surf, //(surface pressure)
+        fields.rhoref.data(),               // TF* rho_air, //(air density previous timestep)
+        fields.sd.at("p")->fld_bot.data(),  // TF* p_surf, //(surface pressure)
         ra.data(),                          // TF* ra, //(aerodynamic resistance, keep constant for now)
         rs.data(),                          // TF* rs, //(surface resistance, constant, set to 0)
         1.,                                 // const float epsilon, //(emissivity of the surface)
