@@ -376,8 +376,8 @@ namespace
         TF* rnet_fld_bot, //(net radiation at the surface)
         TF* thl_fld, //(temperature of the atmosphere just above the surface)
         TF* qt_fld, //(specific humidity just above the surface)
-        TF* rho_air_fld, //(air density previous timestep)
-        TF* p_surf_fld, //(surface pressure)
+        const TF rho_air, //(air density previous timestep)
+        const TF p_surf, //(surface pressure)
         TF* ra_fld, //(aerodynamic resistance, keep constant for now)
         TF* rs_fld, //(surface resistance, constant, set to 0)
         const TF epsilon, //(emissivity of the surface)
@@ -402,8 +402,8 @@ namespace
                 TF rnetin = rnet_fld_bot[ij];   //(net radiation at the surface)
                 TF tatm = thl_fld[ij];          //(temperature of the atmosphere just above the surface)
                 TF qatm = qt_fld[ij];           //(specific humidity just above the surface)
-                TF rho_air = rho_air_fld[ij];   //(air density previous timestep)
-                TF p_surf = p_surf_fld[ij];     //(surface pressure)
+                // TF rho_air = rho_air_fld[ij];   //(air density previous timestep)
+                // TF p_surf = p_surf_fld[ij];     //(surface pressure)
                 TF ra = ra_fld[ij];             //(aerodynamic resistance, keep constant for now)
                 TF rs = rs_fld[ij];             //(surface resistance, constant, set to 0)
                 
@@ -1043,14 +1043,17 @@ void Boundary_surface_solar<TF>::exec(
 
     // Sarah: Surface values and fluxes are calculated in the surface model
     // Calculate the surface values for the surface model
+    const std::vector<TF>& rhorefh = thermo.get_basestate_vector("rhoh");
+    const std::vector<TF>& prefh = thermo.get_basestate_vector("ph");
+    
     get_surface_values_solar(
         fields.sp.at("thl")->fld_bot.data(),// TF* t0, //(previous timestep T)
         fields.sp.at("qt")->fld_bot.data(),  // TF* q0 //(specific humidity at the surface)
         rnetin.data(),                      // TF* rnetin,
         fields.sp.at("thl")->fld.data(),    // TF* tatm, //(temperature of the atmosphere just above the surface)
         fields.sp.at("qt")->fld.data(),     // TF* qatm, //(specific humidity just above the surface)
-        fields.rhoref.data(),               // TF* rho_air, //(air density previous timestep)
-        fields.sd.at("p")->fld_bot.data(),  // TF* p_surf, //(surface pressure)
+        rhorefh[gd.kstart],                  // const TF rho_air, //(air density previous timestep)
+        prefh[gd.kstart],                   // const TF p_surf, //(surface pressure)
         ra.data(),                          // TF* ra, //(aerodynamic resistance, keep constant for now)
         rs.data(),                          // TF* rs, //(surface resistance, constant, set to 0)
         1.,                                 // const float epsilon, //(emissivity of the surface)
