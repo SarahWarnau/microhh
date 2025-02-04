@@ -366,8 +366,7 @@ namespace
                 z0h[ij] = alpha_h * visc/ustar_lim;
             }
     }
-
-    // Sarah: make input parameters into arrays
+///////////////////////////////////////////////////////////
 
     template<typename TF>
     void get_surface_values_solar(
@@ -424,11 +423,15 @@ namespace
                     + E * tatm
                     + rnetin
                 );
+
                 TF denominator = (
                     4 * epsilon * sigma * std::pow(t0, 3)
                     + C * D * X
                     + E
                 );
+
+                printf("CvH: %E, %E, %E, %E, %E, %E\n", A, B, X, C, D, E);
+
                 // Calculate T_tech (surface temperature evaporator)
                 TF T_tech = numerator / denominator;
 
@@ -442,6 +445,8 @@ namespace
         
     }
 }
+
+///////////////////////////////////////////////////////////
 
 template<typename TF>
 Boundary_surface_solar<TF>::Boundary_surface_solar(
@@ -1058,24 +1063,6 @@ void Boundary_surface_solar<TF>::exec(
         gd.jstart, gd.jend,
         gd.icells, gd.jcells
     );
-
-    // Calculate the surface fluxes for the surface model for Dirichlet BC similiar as in boundary_surface_lsm.cxx
-    // calc_fluxes_solar(
-    //     fields.mp.at("u")->flux_bot.data(),
-    //     fields.mp.at("v")->flux_bot.data(),
-    //     fields.mp.at("u")->grad_bot.data(),
-    //     fields.mp.at("v")->grad_bot.data(),
-    //     ustar.data(), obuk.data(),
-    //     fields.mp.at("u")->fld.data(),
-    //     fields.mp.at("u")->fld_bot.data(),
-    //     fields.mp.at("v")->fld.data(),
-    //     fields.mp.at("v")->fld_bot.data(),
-    //     z0m.data(), gd.z[gd.kstart], mbcbot,
-    //     gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart,
-    //     gd.icells, gd.jcells, gd.ijcells,
-    //     boundary_cyclic
-    // );
-
 
     // Calculate the surface value, gradient and flux depending on the chosen boundary condition.
     // Momentum:
