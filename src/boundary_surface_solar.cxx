@@ -38,6 +38,7 @@
 #include "defines.h"
 #include "constants.h"
 #include "thermo.h"
+#include "thermo_moist_functions.h"
 #include "master.h"
 #include "cross.h"
 #include "column.h"
@@ -50,6 +51,7 @@ namespace
     namespace most = Monin_obukhov;
     namespace fm = Fast_math;
     namespace bsk = Boundary_surface_kernels;
+    namespace tmf = Thermo_moist_functions;
 
     template<typename TF, bool sw_constant_z0>
     void stability(
@@ -430,17 +432,17 @@ namespace
                     + E
                 );
 
-                printf("CvH: %E, %E, %E, %E, %E, %E\n", A, B, X, C, D, E);
+                // printf("CvH: %E, %E, %E, %E, %E, %E\n", A, B, X, C, D, E);
 
                 // Calculate T_tech (surface temperature evaporator)
                 TF T_tech = numerator / denominator;
-
-                // Calculate q_sat (surface specific humidity)
-                // Use function from thermo.h instead of calculating it here
-                TF q_sat = A * X;
+                
+                // Use Thermo_moist_functions to calculate qsat
+                TF q_sat = tmf::qsat(p_surf, T_tech);
 
                 thl_fld_bot[ij] = T_tech;
                 qt_fld_bot[ij] = q_sat;
+                printf("Swar: %E, %E, %E\n", T_tech, q_sat, p_surf);
             }
         
     }
