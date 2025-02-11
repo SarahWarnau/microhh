@@ -388,21 +388,20 @@ namespace
         const TF rv, //(specific gas constant for water vapor)
         const TF sigma, //(Stefan-Boltzmann constant)
         const TF lv, //(latent heat of vaporization)
+        const TF exner_bot,
         const int istart, const int iend,
         const int jstart, const int jend,
         const int icells, const int jcells
     )
-    {
-       
-
+    {        
         for (int j=0; j<jcells; j++)
             for (int i=0; i<icells; i++)
             {
                 const int ij = i + j*icells;
-                TF t0 = thl_fld_bot[ij];        //(previous timestep T)
+                TF t0 = thl_fld_bot[ij]*exner_bot;        //(previous timestep T)
                 TF q0 = qt_fld_bot[ij];         //(specific humidity at the surface)
                 TF rnetin = rnet_fld_bot[ij];   //(net radiation at the surface)
-                TF tatm = thl_fld[ij];          //(temperature of the atmosphere just above the surface)
+                TF tatm = thl_fld[ij]*exner_bot;          //(temperature of the atmosphere just above the surface)
                 TF qatm = qt_fld[ij];           //(specific humidity just above the surface)
                 // TF rho_air = rho_air_fld[ij];   //(air density previous timestep)
                 // TF p_surf = p_surf_fld[ij];     //(surface pressure)
@@ -440,9 +439,11 @@ namespace
                 // Use Thermo_moist_functions to calculate qsat
                 TF q_sat = tmf::qsat(p_surf, T_tech);
 
-                thl_fld_bot[ij] = T_tech;
+                thl_fld_bot[ij] = T_tech/exner_bot;
                 qt_fld_bot[ij] = q_sat;
-                printf("Swar: %E, %E, %E\n", T_tech, q_sat, p_surf);
+                // printf("Swar: %E, %E, %E\n", T_tech, q_sat, p_surf);
+                // t0 = thl_fld_bot[ij]*exner_bot;
+            
             }
         
     }
@@ -1047,6 +1048,7 @@ void Boundary_surface_solar<TF>::exec(
     // Calculate the surface values for the surface model
     const std::vector<TF>& rhorefh = thermo.get_basestate_vector("rhoh");
     const std::vector<TF>& prefh = thermo.get_basestate_vector("ph");
+    const std::vector<TF>& exnrefh = thermo.get_basestate_vector("exnerh");
     
     get_surface_values_solar(
         fields.sp.at("thl")->fld_bot.data(),// TF* t0, //(previous timestep T)
@@ -1064,6 +1066,7 @@ void Boundary_surface_solar<TF>::exec(
         461.5,                              // const float rv, //(specific gas constant for water vapor)
         5.67e-8,                            // const float sigma, //(Stefan-Boltzmann constant)
         2.5e6,                              // const float lv, //(latent heat of vaporization)
+        exnrefh[gd.kstart],                 // const TF exh, //(exner reference)
         gd.istart, gd.iend,
         gd.jstart, gd.jend,
         gd.icells, gd.jcells
@@ -1128,6 +1131,7 @@ void Boundary_surface_solar<TF>::exec(
                 gd.icells);
 
         fields.release_tmp(buoy);
+    
     }
 }
 #endif
