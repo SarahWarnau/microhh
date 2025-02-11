@@ -372,7 +372,7 @@ namespace
 
     template<typename TF>
     void get_surface_values_solar(
-        // TF parameter
+        // Parameters for temperature
         TF* thl_fld_bot, //(potential temperature at the surface)
         TF* qt_fld_bot, //(specific humidity at the surface)
         TF* rnet_fld_bot, //(net radiation at the surface)
@@ -388,7 +388,13 @@ namespace
         const TF rv, //(specific gas constant for water vapor)
         const TF sigma, //(Stefan-Boltzmann constant)
         const TF lv, //(latent heat of vaporization)
+        TF* ra,
+        TF* ustar,
+        TF* obuk,
+        const TF* const z0h,
+        const TF zsl,
         const TF exner_bot,
+        // Grid info
         const int istart, const int iend,
         const int jstart, const int jend,
         const int icells, const int jcells
@@ -405,7 +411,7 @@ namespace
                 TF qatm = qt_fld[ij];           //(specific humidity just above the surface)
                 // TF rho_air = rho_air_fld[ij];   //(air density previous timestep)
                 // TF p_surf = p_surf_fld[ij];     //(surface pressure)
-                TF ra = ra_fld[ij];             //(aerodynamic resistance, keep constant for now)
+                // TF ra = ra_fld[ij];             //(aerodynamic resistance, keep constant for now)
                 TF rs = rs_fld[ij];             //(surface resistance, constant, set to 0)
                 
                 // Derived variables
@@ -414,8 +420,8 @@ namespace
                 TF B = 17.67 / (t0 - 29.65);
                 TF X = std::exp((t0 - 273.15) * B);
                 TF C = A * B * 243.5 / (t0 - 29.65);
-                TF D = (rho_air * lv) / (ra + rs);
-                TF E = (rho_air * cp) / ra;
+                TF D = (rho_air * lv) / (ra[ij] + rs);
+                TF E = (rho_air * cp) / ra[ij];
 
                 // Calculate T_tech
                 TF numerator = (
@@ -435,7 +441,19 @@ namespace
 
                 // Calculate T_tech (surface temperature evaporator)
                 TF T_tech = numerator / denominator;
-                
+                // printf("Swar: %E, %E, %E\n", T_tech, t0, tatm);
+                // if (std::abs(T_tech - t0) > 1.) {
+                //     T_tech = t0+0.5;
+                //     printf("Swar: LARGE STEP AHHH \n");
+                // }
+                if (T_tech < 0.) {
+                    T_tech = t0;
+                    printf("Swar: NEGATIVE T_tech, t0 is used instead \n");
+                }
+                if (std::isnan(T_tech)) {
+                    T_tech = t0;
+                    printf("Swar: NAN T_tech, t0 is used instead \n");
+                }
                 // Use Thermo_moist_functions to calculate qsat
                 TF q_sat = tmf::qsat(p_surf, T_tech);
 
@@ -932,13 +950,13 @@ void Boundary_surface_solar<TF>::exec(
             rnetin[ij] = TF(1000.);
         }
 
-    std::vector<TF> ra(gd.ijcells);
-    for (int j=0; j<gd.jcells; j++)
-        for (int i=0; i<gd.icells; i++)
-        {
-            const int ij = i + j*gd.icells;
-            ra[ij] = TF(50.);
-        }
+    // std::vector<TF> ra(gd.ijcells);
+    // for (int j=0; j<gd.jcells; j++)
+    //     for (int i=0; i<gd.icells; i++)
+    //     {
+    //         const int ij = i + j*gd.icells;
+    //         ra[ij] = TF(250.);
+    //     }
 
     std::vector<TF> rs(gd.ijcells);
     for (int j=0; j<gd.jcells; j++)
@@ -1049,6 +1067,7 @@ void Boundary_surface_solar<TF>::exec(
     const std::vector<TF>& rhorefh = thermo.get_basestate_vector("rhoh");
     const std::vector<TF>& prefh = thermo.get_basestate_vector("ph");
     const std::vector<TF>& exnrefh = thermo.get_basestate_vector("exnerh");
+    auto tmp1 = fields.get_tmp();
     
     get_surface_values_solar(
         fields.sp.at("thl")->fld_bot.data(),// TF* t0, //(previous timestep T)
@@ -1066,11 +1085,20 @@ void Boundary_surface_solar<TF>::exec(
         461.5,                              // const float rv, //(specific gas constant for water vapor)
         5.67e-8,                            // const float sigma, //(Stefan-Boltzmann constant)
         2.5e6,                              // const float lv, //(latent heat of vaporization)
+        tmp1->flux_bot.data(),              // TF* flux_bot, //(surface fluxes)
+        ustar.data(),                       // const TF* ustar, //(surface friction velocity)
+        obuk.data(),                        // const TF* obuk, //(Obukhov length)
+        z0h.data(),                         // const TF* z0h, //(roughness length heat)
+        gd.z[gd.kstart],                    // const TF
+
         exnrefh[gd.kstart],                 // const TF exh, //(exner reference)
+
         gd.istart, gd.iend,
         gd.jstart, gd.jend,
         gd.icells, gd.jcells
     );
+
+    fields.release_tmp(tmp1);
 
     // Calculate the surface value, gradient and flux depending on the chosen boundary condition.
     // Momentum:
