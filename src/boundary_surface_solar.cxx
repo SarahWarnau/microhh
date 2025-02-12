@@ -399,7 +399,10 @@ namespace
         const int jstart, const int jend,
         const int icells, const int jcells
     )
-    {        
+    {   
+        bsk::calc_ra(
+            ra, ustar, obuk, z0h, zsl, istart, iend, jstart, jend, icells);
+                 
         for (int j=0; j<jcells; j++)
             for (int i=0; i<icells; i++)
             {
@@ -409,10 +412,11 @@ namespace
                 TF rnetin = rnet_fld_bot[ij];   //(net radiation at the surface)
                 TF tatm = thl_fld[ij]*exner_bot;          //(temperature of the atmosphere just above the surface)
                 TF qatm = qt_fld[ij];           //(specific humidity just above the surface)
-                // TF rho_air = rho_air_fld[ij];   //(air density previous timestep)
-                // TF p_surf = p_surf_fld[ij];     //(surface pressure)
-                // TF ra = ra_fld[ij];             //(aerodynamic resistance, keep constant for now)
                 TF rs = rs_fld[ij];             //(surface resistance, constant, set to 0)
+
+                // printf("Swar: zsl= %E, z0h= %E, obuk= %E\n", zsl, z0h[ij], obuk[ij]);
+                // printf("Swar: ustar= %E, fh= %E\n", ustar[ij], most::fh(zsl, z0h[ij], obuk[ij]));
+                // printf("Swar: ra= %E\n", ra[ij]);
                 
                 // Derived variables
                 TF varepsilon = rd / rv;
@@ -439,13 +443,9 @@ namespace
 
                 // printf("CvH: %E, %E, %E, %E, %E, %E\n", A, B, X, C, D, E);
 
-                // Calculate T_tech (surface temperature evaporator)
                 TF T_tech = numerator / denominator;
-                // printf("Swar: %E, %E, %E\n", T_tech, t0, tatm);
-                // if (std::abs(T_tech - t0) > 1.) {
-                //     T_tech = t0+0.5;
-                //     printf("Swar: LARGE STEP AHHH \n");
-                // }
+                // printf("Swar: T_tech= %E, t0= %E, tatm= %E\n", T_tech, t0, tatm);
+
                 if (T_tech < 0.) {
                     T_tech = t0;
                     printf("Swar: NEGATIVE T_tech, t0 is used instead \n");
@@ -454,14 +454,17 @@ namespace
                     T_tech = t0;
                     printf("Swar: NAN T_tech, t0 is used instead \n");
                 }
-                // Use Thermo_moist_functions to calculate qsat
+
                 TF q_sat = tmf::qsat(p_surf, T_tech);
 
                 thl_fld_bot[ij] = T_tech/exner_bot;
                 qt_fld_bot[ij] = q_sat;
+
+                TF dthl = (T_tech - t0)/exner_bot;
+                if (std::abs(dthl) > 1.) {
+                    printf("Swar: d thl > 1 \n");
+                }
                 // printf("Swar: %E, %E, %E\n", T_tech, q_sat, p_surf);
-                // t0 = thl_fld_bot[ij]*exner_bot;
-            
             }
         
     }
@@ -967,6 +970,11 @@ void Boundary_surface_solar<TF>::exec(
         }
     // 
 
+    ///////////////////////////////
+    // for (int l=0; l<3; l++) {
+
+
+
     // Update roughness lengths when Charnock relation is used,
     // using friction velocity from previous time step (?).
     if (sw_charnock)
@@ -1054,14 +1062,6 @@ void Boundary_surface_solar<TF>::exec(
 
     fields.release_tmp(dutot);
 
-    // Sarah: should I put the input parameters here like this?
-    // // Get (near-) surface thermo
-    // auto T_bot = fields.get_tmp_xy();
-    // auto T_a = fields.get_tmp_xy();
-    // auto vpd = fields.get_tmp_xy();
-    // auto qsat_bot = fields.get_tmp_xy();
-    // auto dqsatdT_bot = fields.get_tmp_xy();
-
     // Sarah: Surface values and fluxes are calculated in the surface model
     // Calculate the surface values for the surface model
     const std::vector<TF>& rhorefh = thermo.get_basestate_vector("rhoh");
@@ -1090,9 +1090,7 @@ void Boundary_surface_solar<TF>::exec(
         obuk.data(),                        // const TF* obuk, //(Obukhov length)
         z0h.data(),                         // const TF* z0h, //(roughness length heat)
         gd.z[gd.kstart],                    // const TF
-
         exnrefh[gd.kstart],                 // const TF exh, //(exner reference)
-
         gd.istart, gd.iend,
         gd.jstart, gd.jend,
         gd.icells, gd.jcells
@@ -1103,31 +1101,31 @@ void Boundary_surface_solar<TF>::exec(
     // Calculate the surface value, gradient and flux depending on the chosen boundary condition.
     // Momentum:
     surfm(fields.mp.at("u")->flux_bot.data(),
-          fields.mp.at("v")->flux_bot.data(),
-          fields.mp.at("u")->grad_bot.data(),
-          fields.mp.at("v")->grad_bot.data(),
-          ustar.data(), obuk.data(),
-          fields.mp.at("u")->fld.data(),
-          fields.mp.at("u")->fld_bot.data(),
-          fields.mp.at("v")->fld.data(),
-          fields.mp.at("v")->fld_bot.data(),
-          z0m.data(), gd.z[gd.kstart], mbcbot,
-          gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart,
-          gd.icells, gd.jcells, gd.ijcells,
-          boundary_cyclic);
+        fields.mp.at("v")->flux_bot.data(),
+        fields.mp.at("u")->grad_bot.data(),
+        fields.mp.at("v")->grad_bot.data(),
+        ustar.data(), obuk.data(),
+        fields.mp.at("u")->fld.data(),
+        fields.mp.at("u")->fld_bot.data(),
+        fields.mp.at("v")->fld.data(),
+        fields.mp.at("v")->fld_bot.data(),
+        z0m.data(), gd.z[gd.kstart], mbcbot,
+        gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart,
+        gd.icells, gd.jcells, gd.ijcells,
+        boundary_cyclic);
 
     // Scalars:
     for (auto& it : fields.sp)
         surfs(it.second->fld_bot.data(),
-              it.second->grad_bot.data(),
-              it.second->flux_bot.data(),
-              ustar.data(), obuk.data(),
-              it.second->fld.data(), z0h.data(),
-              gd.z[gd.kstart], sbc.at(it.first).bcbot,
-              gd.istart, gd.iend,
-              gd.jstart, gd.jend, gd.kstart,
-              gd.icells, gd.jcells, gd.ijcells,
-              boundary_cyclic);
+            it.second->grad_bot.data(),
+            it.second->flux_bot.data(),
+            ustar.data(), obuk.data(),
+            it.second->fld.data(), z0h.data(),
+            gd.z[gd.kstart], sbc.at(it.first).bcbot,
+            gd.istart, gd.iend,
+            gd.jstart, gd.jend, gd.kstart,
+            gd.icells, gd.jcells, gd.ijcells,
+            boundary_cyclic);
 
     // Calculate MO gradients
     bsk::calc_duvdz_mo(
