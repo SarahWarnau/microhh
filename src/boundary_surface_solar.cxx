@@ -35,6 +35,7 @@
 #include "boundary.h"
 #include "boundary_surface_solar.h"
 #include "boundary_surface_kernels.h"
+// #include "land_surface_kernels.h"
 #include "defines.h"
 #include "constants.h"
 #include "thermo.h"
@@ -51,6 +52,7 @@ namespace
     namespace most = Monin_obukhov;
     namespace fm = Fast_math;
     namespace bsk = Boundary_surface_kernels;
+    // namespace lsmk = Land_surface_kernels;
     namespace tmf = Thermo_moist_functions;
 
     template<typename TF, bool sw_constant_z0>
@@ -375,57 +377,97 @@ namespace
         // Parameters for temperature
         TF* thl_fld_bot, //(potential temperature at the surface)
         TF* qt_fld_bot, //(specific humidity at the surface)
-        TF* rnet_fld_bot, //(net radiation at the surface)
-        TF* thl_fld, //(temperature of the atmosphere just above the surface)
-        TF* qt_fld, //(specific humidity just above the surface)
+        const TF* rnet_fld_bot, //(net radiation at the surface)
+        const TF* thl_fld, //(temperature of the atmosphere just above the surface)
+        const TF* qt_fld, //(specific humidity just above the surface)
         const TF rho_air, //(air density previous timestep)
-        const TF p_surf, //(surface pressure)
-        TF* ra_fld, //(aerodynamic resistance, keep constant for now)
-        TF* rs_fld, //(surface resistance, constant, set to 0)
+        const TF p_bot, //(surface pressure)
+        const TF p_atm, //(pressure of the atmosphere just above the surface)
+        const TF* rs_fld, //(surface resistance, constant, set to 0)
         const TF epsilon, //(emissivity of the surface)
         const TF cp, //(specific heat capacity of air)
         const TF rd, //(specific gas constant for dry air)
         const TF rv, //(specific gas constant for water vapor)
         const TF sigma, //(Stefan-Boltzmann constant)
         const TF lv, //(latent heat of vaporization)
-        TF* ra,
-        TF* ustar,
-        TF* obuk,
-        const TF* const z0h,
-        const TF zsl,
         const TF exner_bot,
+        const TF exner_atm,
+
+        // same as l474 of boundary_surface_kernels.h in calc_ra
+        TF* const restrict ra,
+        const TF* const restrict ustar,
+        const TF* const restrict obuk,
+        const TF* const restrict z0h,
+        const TF zsl,
+
+
         // Grid info
         const int istart, const int iend,
         const int jstart, const int jend,
+        const int kstart,
         const int icells, const int jcells
+        
     )
     {   
-        bsk::calc_ra(
-            ra, ustar, obuk, z0h, zsl, istart, iend, jstart, jend, icells);
-                 
+        // same as this file, l927
+        bsk::calc_ra(ra, ustar, obuk, z0h, zsl, istart, iend, jstart, jend, icells);
+
+        // int center_i_start = icells / 4;
+        // int center_i_end = 3 * icells / 4;
+        // int center_j_start = jcells / 4;
+        // int center_j_end = 3 * jcells / 4;
+        
+        // for (int j = center_j_start; j < center_j_end; j++)
+        //     for (int i = center_i_start; i < center_i_end; i++)       
+        
+        
+
+        // Only put the solar evaporator in the center of the domain, on i [8-10] and j [8-10]
+        // for (int j=0; j<jcells; j++)
+        //     for (int i = 12; i < 21; i++)
+
+        
+
         for (int j=0; j<jcells; j++)
             for (int i=0; i<icells; i++)
             {
                 const int ij = i + j*icells;
+                const int ijk = i + j*icells + kstart*icells*jcells;
                 TF t0 = thl_fld_bot[ij]*exner_bot;        //(previous timestep T)
                 TF q0 = qt_fld_bot[ij];         //(specific humidity at the surface)
                 TF rnetin = rnet_fld_bot[ij];   //(net radiation at the surface)
-                TF tatm = thl_fld[ij]*exner_bot;          //(temperature of the atmosphere just above the surface)
-                TF qatm = qt_fld[ij];           //(specific humidity just above the surface)
+                TF tatm = thl_fld[ijk]*exner_atm; //(temperature of the atmosphere just above the surface)
+                TF qatm = qt_fld[ijk];           //(specific humidity just above the surface)
                 TF rs = rs_fld[ij];             //(surface resistance, constant, set to 0)
+
+                // printf("Swar: ra %E, ustar %E, obuk %E, z0h %E, zsl %E\n", ra[ij], ustar[ij], obuk[ij], z0h[ij], zsl);
+                // TF ra = ra_fld[ij];             //(aerodynamic resistance, keep constant for now)
+                
+                // TF ra_ij = ra[ij];
+                TF ra_ij = 20.; 
+
+                // if (ra_ij <= 1.) {
+                //     ra_ij = 1;
+                //     printf("Swar: ra<=1., 1 is used instead \n");
+                // }
 
                 // printf("Swar: zsl= %E, z0h= %E, obuk= %E\n", zsl, z0h[ij], obuk[ij]);
                 // printf("Swar: ustar= %E, fh= %E\n", ustar[ij], most::fh(zsl, z0h[ij], obuk[ij]));
-                // printf("Swar: ra= %E\n", ra[ij]);
+                // printf("Swar: ra= %E\n", ra_ij);
+                // printf("Swar:0 T0 %E, q0 %E\n", t0, q0);
+
                 
+
                 // Derived variables
                 TF varepsilon = rd / rv;
-                TF A = (varepsilon * 611.2) / p_surf;
+                TF A = (varepsilon * 611.2) / p_bot;
                 TF B = 17.67 / (t0 - 29.65);
                 TF X = std::exp((t0 - 273.15) * B);
                 TF C = A * B * 243.5 / (t0 - 29.65);
-                TF D = (rho_air * lv) / (ra[ij] + rs);
-                TF E = (rho_air * cp) / ra[ij];
+                // TF D = (rho_air * lv) / (ra[ij] + rs);
+                // TF E = (rho_air * cp) / ra[ij];
+                TF D = (rho_air * lv) / (ra_ij + rs);
+                TF E = (rho_air * cp) / ra_ij;
 
                 // Calculate T_tech
                 TF numerator = (
@@ -443,27 +485,90 @@ namespace
 
                 // printf("CvH: %E, %E, %E, %E, %E, %E\n", A, B, X, C, D, E);
 
+
+
+
+
                 TF T_tech = numerator / denominator;
                 // printf("Swar: T_tech= %E, t0= %E, tatm= %E\n", T_tech, t0, tatm);
 
+                // TF dTtech_dLout = 1.0 / (4 * epsilon * sigma * std::pow(T_tech, 3) + (rho_air * lv / (ra_ij + rs)) * C + E);
+                // TF dTtech_dLout = 1./(4.*epsilon*sigma*std::pow(T_tech, 3));
+                TF LWout = 4*epsilon*sigma*std::pow(t0, 3)*T_tech - 3*epsilon*sigma*std::pow(t0, 4);
+                // TF LWout_prev = epsilon*sigma*std::pow(t0, 4);
+                TF LE = C*D*X*T_tech - D*((C*t0 - A)*X + qatm);
+                TF H = E*(T_tech - tatm);
+
+                // printf("Swar: %E \n", dTtech_dLout*LWout);
+                // T_tech = T_tech - dTtech_dLout*LWout;
+
                 if (T_tech < 0.) {
                     T_tech = t0;
-                    printf("Swar: NEGATIVE T_tech, t0 is used instead \n");
+                    // printf("Swar: NEGATIVE T_tech, t0 is used instead \n");
                 }
                 if (std::isnan(T_tech)) {
                     T_tech = t0;
-                    printf("Swar: NAN T_tech, t0 is used instead \n");
+                    // printf("Swar: NAN T_tech, t0 is used instead \n");
                 }
 
-                TF q_sat = tmf::qsat(p_surf, T_tech);
+                
+                // TF dqt = q_sat - q0;
+                // qt_fld_bot[ij] = q0 + dqsdT*(T_tech - t0);
+
+                // if (std::abs(dT) > 0.1) {
+                //     T_tech = t0 + 0.01*dT;
+                //     printf("Swar: d T > 1 \n");
+                // }
+
+                // TF dT = (T_tech - t0);
+                // if (dT > 0.1) {
+                //     T_tech = t0 + 0.1;
+                //     printf("Swar: d T > 1. \n");
+                // }
+                // if (dT < -0.1) {
+                //     T_tech = t0 - 0.1;
+                //     printf("Swar: d T < -1. \n");
+                // }
+
+                // if (T_tech < tatm) {
+                //     T_tech = tatm;
+                //     printf("Swar: T_tech < tatm --> T_tech = tatm \n");
+                // }
+
+                TF q_sat = C*X*T_tech - (C*t0 - A)*X;
+
+                // TF e_sat = 611.2*std::exp(17.67*(T_tech - 273.15)/(T_tech - 273.15 + 243.5)); // tmf::esat(T_tech);
+                // TF q_sat = 0.5*e_sat*(rd/rv)/(p_surf - e_sat*(1 - rd/rv));
+                // TF q_sat = tmf::qsat(p_surf, T_tech);
+                // printf("Swar:qsat %E\n", q_sat);
+
+                // printf("Swar:1 T %E, qsat %E\n", T_tech, q_sat);
+                // printf("Swar:1a qsat_liq calculation %E\n", tmf::qsat_liq(p_surf, T_tech));
+                // printf("Swar:1b qsat calculation %E\n", tmf::qsat(p_surf, T_tech));
+                
+                
 
                 thl_fld_bot[ij] = T_tech/exner_bot;
-                qt_fld_bot[ij] = q_sat;
+                // qt_fld_bot[ij] = q_sat;
+                // qt_fld_bot[ij] = (qatm*(ra[ij] + rs) + (q_sat - qatm)*ra[ij])/(ra[ij] + rs);
+                qt_fld_bot[ij] = (qatm*(ra_ij + rs) + (q_sat - qatm)*ra_ij)/(ra_ij + rs);
 
-                TF dthl = (T_tech - t0)/exner_bot;
-                if (std::abs(dthl) > 1.) {
-                    printf("Swar: d thl > 1 \n");
-                }
+                // print rnetin, t0, tatm, psurf, rho_air, ra, rs, epsilon, q
+                // printf("Swar: Rnetin %E, T0 %E, Tatm %E, Psurf %E, rho_air %E, ra %E, rs %E, epsilon %E, q %E\n", rnetin, t0, tatm, p_surf, rho_air, ra, rs, epsilon, q0);
+                // printf("Swar: thl_atm %E, qt_atm %E \n", tatm, qatm);
+                // printf("Swar: thl_tech %E, q_tech %E, qbot %E \n", T_tech, q_sat, qt_fld_bot[ij]);
+                // printf("Swar: LWout %E, LE %E, H %E\n", LWout, LE, H);
+                // printf("Swar: Balance %E \n", LWout+LE+H-rnetin);
+                
+                
+                // printf("%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E\n", 
+                //     lv, cp, rd, rv, sigma, rnetin, t0, tatm, qatm, rho_air, ustar[ij], obuk[ij], z0h[ij], zsl, ra[ij], rs, p_bot, epsilon, q0, A, B, X, C, D, E, T_tech, q_sat, LWout, LE, H, LWout+LE+H-rnetin);
+
+
+
+                // if (dqt == 0.) {
+                //     printf("Swar: d qt == 0 \n");
+                // }
                 // printf("Swar: %E, %E, %E\n", T_tech, q_sat, p_surf);
             }
         
@@ -966,6 +1071,7 @@ void Boundary_surface_solar<TF>::exec(
         for (int i=0; i<gd.icells; i++)
         {
             const int ij = i + j*gd.icells;
+            // rs[ij] = TF(9999999999999999999999999999999999999999.);
             rs[ij] = TF(0.);
         }
     // 
@@ -1062,42 +1168,51 @@ void Boundary_surface_solar<TF>::exec(
 
     fields.release_tmp(dutot);
 
+
+    //////////////////////////////////////
+    //////////////////////////////////////
+
     // Sarah: Surface values and fluxes are calculated in the surface model
     // Calculate the surface values for the surface model
-    const std::vector<TF>& rhorefh = thermo.get_basestate_vector("rhoh");
-    const std::vector<TF>& prefh = thermo.get_basestate_vector("ph");
-    const std::vector<TF>& exnrefh = thermo.get_basestate_vector("exnerh");
+    const std::vector<TF>& rhoref = thermo.get_basestate_vector("rho");
+    const std::vector<TF>& pref = thermo.get_basestate_vector("p");
+    const std::vector<TF>& exnref = thermo.get_basestate_vector("exner");
     auto tmp1 = fields.get_tmp();
     
+
     get_surface_values_solar(
         fields.sp.at("thl")->fld_bot.data(),// TF* t0, //(previous timestep T)
         fields.sp.at("qt")->fld_bot.data(),  // TF* q0 //(specific humidity at the surface)
         rnetin.data(),                      // TF* rnetin,
         fields.sp.at("thl")->fld.data(),    // TF* tatm, //(temperature of the atmosphere just above the surface)
         fields.sp.at("qt")->fld.data(),     // TF* qatm, //(specific humidity just above the surface)
-        rhorefh[gd.kstart],                  // const TF rho_air, //(air density previous timestep)
-        prefh[gd.kstart],                   // const TF p_surf, //(surface pressure)
-        ra.data(),                          // TF* ra, //(aerodynamic resistance, keep constant for now)
+        rhoref[gd.kstart],                  // const TF rho_air, //(air density previous timestep)
+        thermo.get_basestate_vector("ph")[gd.kstart], // const TF p_surf, //(surface pressure)
+        pref[gd.kstart],                 
         rs.data(),                          // TF* rs, //(surface resistance, constant, set to 0)
         1.,                                 // const float epsilon, //(emissivity of the surface)
-        1004.,                              // const int cp, //(specific heat capacity of air)
-        287.05,                             // const float rd, //(specific gas constant for dry air)
-        461.5,                              // const float rv, //(specific gas constant for water vapor)
-        5.67e-8,                            // const float sigma, //(Stefan-Boltzmann constant)
-        2.5e6,                              // const float lv, //(latent heat of vaporization)
-        tmp1->flux_bot.data(),              // TF* flux_bot, //(surface fluxes)
-        ustar.data(),                       // const TF* ustar, //(surface friction velocity)
-        obuk.data(),                        // const TF* obuk, //(Obukhov length)
-        z0h.data(),                         // const TF* z0h, //(roughness length heat)
-        gd.z[gd.kstart],                    // const TF
-        exnrefh[gd.kstart],                 // const TF exh, //(exner reference)
+        Constants::cp<TF>,                              // const int cp, //(specific heat capacity of air)
+        Constants::Rd<TF>,                             // const float rd, //(specific gas constant for dry air)
+        Constants::Rv<TF>,                              // const float rv, //(specific gas constant for water vapor)
+        Constants::sigma_b<TF>,                            // const float sigma, //(Stefan-Boltzmann constant)
+        Constants::Lv<TF>,                              // const float lv, //(latent heat of vaporization)
+        thermo.get_basestate_vector("exnerh")[gd.kstart],                 // const TF ex, //(exner reference)
+        exnref[gd.kstart],                 // const TF ex, //(exner reference)
+        tmp1->flux_bot.data(), //ra.data(),  
+        ustar.data(), 
+        obuk.data(),
+        z0h.data(), 
+        gd.z[gd.kstart],
+
         gd.istart, gd.iend,
         gd.jstart, gd.jend,
+        gd.kstart,
         gd.icells, gd.jcells
     );
 
     fields.release_tmp(tmp1);
 
+    
     // Calculate the surface value, gradient and flux depending on the chosen boundary condition.
     // Momentum:
     surfm(fields.mp.at("u")->flux_bot.data(),
@@ -1114,6 +1229,7 @@ void Boundary_surface_solar<TF>::exec(
         gd.icells, gd.jcells, gd.ijcells,
         boundary_cyclic);
 
+   
     // Scalars:
     for (auto& it : fields.sp)
         surfs(it.second->fld_bot.data(),
@@ -1143,6 +1259,7 @@ void Boundary_surface_solar<TF>::exec(
             gd.kstart,
             gd.icells, gd.ijcells);
 
+
     if (thermo.get_switch() != Thermo_type::Disabled)
     {
         auto buoy = fields.get_tmp();
@@ -1160,7 +1277,12 @@ void Boundary_surface_solar<TF>::exec(
     
     }
 }
+
+
+
 #endif
+
+
 
 template<typename TF>
 void Boundary_surface_solar<TF>::update_slave_bcs()

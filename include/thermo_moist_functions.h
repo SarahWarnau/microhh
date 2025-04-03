@@ -87,14 +87,14 @@ namespace Thermo_moist_functions
     {
         #ifdef __CUDACC__
         // const TF x = fmax(TF(-75.), T-T0<TF>);
-        const TF x = fmin(fmax(TF(-75.), T-T0<TF>), TF(50.));       // Limit the temperature range to avoid numerical errors
+        const TF x = fmin(fmax(TF(-75.), T-T0<TF>), TF(100.));       // Limit the temperature range to avoid numerical errors
         #else
         // const TF x = std::max(TF(-75.), T-T0<TF>);
-        const TF x = std::min(std::max(TF(-75.), T-T0<TF>), TF(50.));     // Limit the temperature range to avoid numerical errors
+        const TF x = std::min(std::max(TF(-75.), T-T0<TF>), TF(100.));     // Limit the temperature range to avoid numerical errors
         #endif
 
-        // return TF(611.21)*std::exp(TF(17.502)*x / (TF(240.97)+x));
-        return c00<TF>+x*(c10<TF>+x*(c20<TF>+x*(c30<TF>+x*(c40<TF>+x*(c50<TF>+x*(c60<TF>+x*(c70<TF>+x*(c80<TF>+x*(c90<TF>+x*c100<TF>)))))))));
+        return TF(611.21)*std::exp(TF(17.502)*x / (TF(240.97)+x));
+        // return c00<TF>+x*(c10<TF>+x*(c20<TF>+x*(c30<TF>+x*(c40<TF>+x*(c50<TF>+x*(c60<TF>+x*(c70<TF>+x*(c80<TF>+x*(c90<TF>+x*c100<TF>)))))))));
     }
 
     template<typename TF>
