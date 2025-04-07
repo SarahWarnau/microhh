@@ -400,6 +400,10 @@ namespace
         const TF* const restrict z0h,
         const TF zsl,
 
+        const TF* solar_evaporator_placement,
+
+        // const TF* u_fld,
+        // const TF* v_fld,
 
         // Grid info
         const int istart, const int iend,
@@ -433,143 +437,148 @@ namespace
             {
                 const int ij = i + j*icells;
                 const int ijk = i + j*icells + kstart*icells*jcells;
-                TF t0 = thl_fld_bot[ij]*exner_bot;        //(previous timestep T)
-                TF q0 = qt_fld_bot[ij];         //(specific humidity at the surface)
-                TF rnetin = rnet_fld_bot[ij];   //(net radiation at the surface)
-                TF tatm = thl_fld[ijk]*exner_atm; //(temperature of the atmosphere just above the surface)
-                TF qatm = qt_fld[ijk];           //(specific humidity just above the surface)
-                TF rs = rs_fld[ij];             //(surface resistance, constant, set to 0)
-
-                // printf("Swar: ra %E, ustar %E, obuk %E, z0h %E, zsl %E\n", ra[ij], ustar[ij], obuk[ij], z0h[ij], zsl);
-                // TF ra = ra_fld[ij];             //(aerodynamic resistance, keep constant for now)
-                
                 // TF ra_ij = ra[ij];
                 TF ra_ij = 20.; 
 
-                // if (ra_ij <= 1.) {
-                //     ra_ij = 1;
-                //     printf("Swar: ra<=1., 1 is used instead \n");
-                // }
+                if (solar_evaporator_placement[ij] == 1)
+                {
+                    TF t0 = thl_fld_bot[ij]*exner_bot;        //(previous timestep T)
+                    TF q0 = qt_fld_bot[ij];         //(specific humidity at the surface)
+                    TF rnetin = rnet_fld_bot[ij];   //(net radiation at the surface)
+                    TF tatm = thl_fld[ijk]*exner_atm; //(temperature of the atmosphere just above the surface)
+                    TF qatm = qt_fld[ijk];           //(specific humidity just above the surface)
+                    TF rs = rs_fld[ij];             //(surface resistance, constant, set to 0)
 
-                // printf("Swar: zsl= %E, z0h= %E, obuk= %E\n", zsl, z0h[ij], obuk[ij]);
-                // printf("Swar: ustar= %E, fh= %E\n", ustar[ij], most::fh(zsl, z0h[ij], obuk[ij]));
-                // printf("Swar: ra= %E\n", ra_ij);
-                // printf("Swar:0 T0 %E, q0 %E\n", t0, q0);
+                    // printf("Swar: ra %E, ustar %E, obuk %E, z0h %E, zsl %E\n", ra[ij], ustar[ij], obuk[ij], z0h[ij], zsl);
+                    // TF ra = ra_fld[ij];             //(aerodynamic resistance, keep constant for now)
+                    
 
-                
+                    // if (ra_ij <= 1.) {
+                    //     ra_ij = 1;
+                    //     printf("Swar: ra<=1., 1 is used instead \n");
+                    // }
 
-                // Derived variables
-                TF varepsilon = rd / rv;
-                TF A = (varepsilon * 611.2) / p_bot;
-                TF B = 17.67 / (t0 - 29.65);
-                TF X = std::exp((t0 - 273.15) * B);
-                TF C = A * B * 243.5 / (t0 - 29.65);
-                // TF D = (rho_air * lv) / (ra[ij] + rs);
-                // TF E = (rho_air * cp) / ra[ij];
-                TF D = (rho_air * lv) / (ra_ij + rs);
-                TF E = (rho_air * cp) / ra_ij;
+                    // printf("Swar: zsl= %E, z0h= %E, obuk= %E\n", zsl, z0h[ij], obuk[ij]);
+                    // printf("Swar: ustar= %E, fh= %E\n", ustar[ij], most::fh(zsl, z0h[ij], obuk[ij]));
+                    // printf("Swar: ra= %E\n", ra_ij);
+                    // printf("Swar:0 T0 %E, q0 %E\n", t0, q0);
 
-                // Calculate T_tech
-                TF numerator = (
-                    3 * epsilon * sigma * std::pow(t0, 4)
-                    + D * ((C * t0 - A) * X + qatm)
-                    + E * tatm
-                    + rnetin
-                );
+                    
 
-                TF denominator = (
-                    4 * epsilon * sigma * std::pow(t0, 3)
-                    + C * D * X
-                    + E
-                );
+                    // Derived variables
+                    TF varepsilon = rd / rv;
+                    TF A = (varepsilon * 611.2) / p_bot;
+                    TF B = 17.67 / (t0 - 29.65);
+                    TF X = std::exp((t0 - 273.15) * B);
+                    TF C = A * B * 243.5 / (t0 - 29.65);
+                    // TF D = (rho_air * lv) / (ra[ij] + rs);
+                    // TF E = (rho_air * cp) / ra[ij];
+                    TF D = (rho_air * lv) / (ra_ij + rs);
+                    TF E = (rho_air * cp) / ra_ij;
 
-                // printf("CvH: %E, %E, %E, %E, %E, %E\n", A, B, X, C, D, E);
+                    // Calculate T_tech
+                    TF numerator = (
+                        3 * epsilon * sigma * std::pow(t0, 4)
+                        + D * ((C * t0 - A) * X + qatm)
+                        + E * tatm
+                        + rnetin
+                    );
 
+                    TF denominator = (
+                        4 * epsilon * sigma * std::pow(t0, 3)
+                        + C * D * X
+                        + E
+                    );
 
-
-
-
-                TF T_tech = numerator / denominator;
-                // printf("Swar: T_tech= %E, t0= %E, tatm= %E\n", T_tech, t0, tatm);
-
-                // TF dTtech_dLout = 1.0 / (4 * epsilon * sigma * std::pow(T_tech, 3) + (rho_air * lv / (ra_ij + rs)) * C + E);
-                // TF dTtech_dLout = 1./(4.*epsilon*sigma*std::pow(T_tech, 3));
-                TF LWout = 4*epsilon*sigma*std::pow(t0, 3)*T_tech - 3*epsilon*sigma*std::pow(t0, 4);
-                // TF LWout_prev = epsilon*sigma*std::pow(t0, 4);
-                TF LE = C*D*X*T_tech - D*((C*t0 - A)*X + qatm);
-                TF H = E*(T_tech - tatm);
-
-                // printf("Swar: %E \n", dTtech_dLout*LWout);
-                // T_tech = T_tech - dTtech_dLout*LWout;
-
-                if (T_tech < 0.) {
-                    T_tech = t0;
-                    // printf("Swar: NEGATIVE T_tech, t0 is used instead \n");
-                }
-                if (std::isnan(T_tech)) {
-                    T_tech = t0;
-                    // printf("Swar: NAN T_tech, t0 is used instead \n");
-                }
-
-                
-                // TF dqt = q_sat - q0;
-                // qt_fld_bot[ij] = q0 + dqsdT*(T_tech - t0);
-
-                // if (std::abs(dT) > 0.1) {
-                //     T_tech = t0 + 0.01*dT;
-                //     printf("Swar: d T > 1 \n");
-                // }
-
-                // TF dT = (T_tech - t0);
-                // if (dT > 0.1) {
-                //     T_tech = t0 + 0.1;
-                //     printf("Swar: d T > 1. \n");
-                // }
-                // if (dT < -0.1) {
-                //     T_tech = t0 - 0.1;
-                //     printf("Swar: d T < -1. \n");
-                // }
-
-                // if (T_tech < tatm) {
-                //     T_tech = tatm;
-                //     printf("Swar: T_tech < tatm --> T_tech = tatm \n");
-                // }
-
-                TF q_sat = C*X*T_tech - (C*t0 - A)*X;
-
-                // TF e_sat = 611.2*std::exp(17.67*(T_tech - 273.15)/(T_tech - 273.15 + 243.5)); // tmf::esat(T_tech);
-                // TF q_sat = 0.5*e_sat*(rd/rv)/(p_surf - e_sat*(1 - rd/rv));
-                // TF q_sat = tmf::qsat(p_surf, T_tech);
-                // printf("Swar:qsat %E\n", q_sat);
-
-                // printf("Swar:1 T %E, qsat %E\n", T_tech, q_sat);
-                // printf("Swar:1a qsat_liq calculation %E\n", tmf::qsat_liq(p_surf, T_tech));
-                // printf("Swar:1b qsat calculation %E\n", tmf::qsat(p_surf, T_tech));
-                
-                
-
-                thl_fld_bot[ij] = T_tech/exner_bot;
-                // qt_fld_bot[ij] = q_sat;
-                // qt_fld_bot[ij] = (qatm*(ra[ij] + rs) + (q_sat - qatm)*ra[ij])/(ra[ij] + rs);
-                qt_fld_bot[ij] = (qatm*(ra_ij + rs) + (q_sat - qatm)*ra_ij)/(ra_ij + rs);
-
-                // print rnetin, t0, tatm, psurf, rho_air, ra, rs, epsilon, q
-                // printf("Swar: Rnetin %E, T0 %E, Tatm %E, Psurf %E, rho_air %E, ra %E, rs %E, epsilon %E, q %E\n", rnetin, t0, tatm, p_surf, rho_air, ra, rs, epsilon, q0);
-                // printf("Swar: thl_atm %E, qt_atm %E \n", tatm, qatm);
-                // printf("Swar: thl_tech %E, q_tech %E, qbot %E \n", T_tech, q_sat, qt_fld_bot[ij]);
-                // printf("Swar: LWout %E, LE %E, H %E\n", LWout, LE, H);
-                // printf("Swar: Balance %E \n", LWout+LE+H-rnetin);
-                
-                
-                // printf("%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E\n", 
-                //     lv, cp, rd, rv, sigma, rnetin, t0, tatm, qatm, rho_air, ustar[ij], obuk[ij], z0h[ij], zsl, ra[ij], rs, p_bot, epsilon, q0, A, B, X, C, D, E, T_tech, q_sat, LWout, LE, H, LWout+LE+H-rnetin);
+                    // printf("CvH: %E, %E, %E, %E, %E, %E\n", A, B, X, C, D, E);
 
 
 
-                // if (dqt == 0.) {
-                //     printf("Swar: d qt == 0 \n");
-                // }
-                // printf("Swar: %E, %E, %E\n", T_tech, q_sat, p_surf);
+
+
+                    TF T_tech = numerator / denominator;
+                    // printf("Swar: T_tech= %E, t0= %E, tatm= %E\n", T_tech, t0, tatm);
+
+                    // TF dTtech_dLout = 1.0 / (4 * epsilon * sigma * std::pow(T_tech, 3) + (rho_air * lv / (ra_ij + rs)) * C + E);
+                    // TF dTtech_dLout = 1./(4.*epsilon*sigma*std::pow(T_tech, 3));
+                    TF LWout = 4*epsilon*sigma*std::pow(t0, 3)*T_tech - 3*epsilon*sigma*std::pow(t0, 4);
+                    // TF LWout_prev = epsilon*sigma*std::pow(t0, 4);
+                    TF LE = C*D*X*T_tech - D*((C*t0 - A)*X + qatm);
+                    TF H = E*(T_tech - tatm);
+
+                    // printf("Swar: %E \n", dTtech_dLout*LWout);
+                    // T_tech = T_tech - dTtech_dLout*LWout;
+
+                    if (T_tech < 0.) {
+                        T_tech = t0;
+                        // printf("Swar: NEGATIVE T_tech, t0 is used instead \n");
+                    }
+                    if (std::isnan(T_tech)) {
+                        T_tech = t0;
+                        // printf("Swar: NAN T_tech, t0 is used instead \n");
+                    }
+
+                    
+                    // TF dqt = q_sat - q0;
+                    // qt_fld_bot[ij] = q0 + dqsdT*(T_tech - t0);
+
+                    // if (std::abs(dT) > 0.1) {
+                    //     T_tech = t0 + 0.01*dT;
+                    //     printf("Swar: d T > 1 \n");
+                    // }
+
+                    // TF dT = (T_tech - t0);
+                    // if (dT > 0.1) {
+                    //     T_tech = t0 + 0.1;
+                    //     printf("Swar: d T > 1. \n");
+                    // }
+                    // if (dT < -0.1) {
+                    //     T_tech = t0 - 0.1;
+                    //     printf("Swar: d T < -1. \n");
+                    // }
+
+                    // if (T_tech < tatm) {
+                    //     T_tech = tatm;
+                    //     printf("Swar: T_tech < tatm --> T_tech = tatm \n");
+                    // }
+
+                    TF q_sat = C*X*T_tech - (C*t0 - A)*X;
+
+                    // TF e_sat = 611.2*std::exp(17.67*(T_tech - 273.15)/(T_tech - 273.15 + 243.5)); // tmf::esat(T_tech);
+                    // TF q_sat = 0.5*e_sat*(rd/rv)/(p_surf - e_sat*(1 - rd/rv));
+                    // TF q_sat = tmf::qsat(p_surf, T_tech);
+                    // printf("Swar:qsat %E\n", q_sat);
+
+                    // printf("Swar:1 T %E, qsat %E\n", T_tech, q_sat);
+                    // printf("Swar:1a qsat_liq calculation %E\n", tmf::qsat_liq(p_surf, T_tech));
+                    // printf("Swar:1b qsat calculation %E\n", tmf::qsat(p_surf, T_tech));
+                    
+                    
+
+                    thl_fld_bot[ij] = T_tech/exner_bot;
+                    // qt_fld_bot[ij] = q_sat;
+                    // qt_fld_bot[ij] = (qatm*(ra[ij] + rs) + (q_sat - qatm)*ra[ij])/(ra[ij] + rs);
+                    qt_fld_bot[ij] = (qatm*(ra_ij + rs) + (q_sat - qatm)*ra_ij)/(ra_ij + rs);
+
+                    // print rnetin, t0, tatm, psurf, rho_air, ra, rs, epsilon, q
+                    // printf("Swar: Rnetin %E, T0 %E, Tatm %E, Psurf %E, rho_air %E, ra %E, rs %E, epsilon %E, q %E\n", rnetin, t0, tatm, p_surf, rho_air, ra, rs, epsilon, q0);
+                    // printf("Swar: thl_atm %E, qt_atm %E \n", tatm, qatm);
+                    // printf("Swar: thl_tech %E, q_tech %E, qbot %E \n", T_tech, q_sat, qt_fld_bot[ij]);
+                    // printf("Swar: LWout %E, LE %E, H %E\n", LWout, LE, H);
+                    // printf("Swar: Balance %E \n", LWout+LE+H-rnetin);
+                    
+                    
+                    // printf("%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E,%E\n", 
+                    //     lv, cp, rd, rv, sigma, rnetin, t0, tatm, qatm, rho_air, ustar[ij], obuk[ij], z0h[ij], zsl, ra[ij], rs, p_bot, epsilon, q0, 
+                    //     A, B, X, C, D, E, T_tech, q_sat, LWout, LE, H, LWout+LE+H-rnetin, u_fld[ijk], v_fld[ijk]);
+
+
+
+                    // if (dqt == 0.) {
+                    //     printf("Swar: d qt == 0 \n");
+                    // }
+                    // printf("Swar: %E, %E, %E\n", T_tech, q_sat, p_surf);
+                }                   
             }
         
     }
@@ -1074,6 +1083,84 @@ void Boundary_surface_solar<TF>::exec(
             // rs[ij] = TF(9999999999999999999999999999999999999999.);
             rs[ij] = TF(0.);
         }
+
+    std::vector<TF> solar_evaporator_placement(gd.ijcells);
+    std::fill(solar_evaporator_placement.begin(), solar_evaporator_placement.end(), 0);
+    
+    // // Half domain
+    // for (int j=0; j<gd.jcells; j++)
+    //     for (int i=0; i<(gd.icells/2); ++i)
+    //     {
+    //         const int ij = i +j*gd.icells;
+    //         solar_evaporator_placement[ij] = 1;
+    //     }
+
+    // // 1/3 domain striped pattern
+    // const int pattern = 3;
+    // for (int j=0; j<gd.jcells; j++)
+    //     for (int i=0; i<gd.icells; i++)
+    //     {
+    //         const int ij = i + j*gd.icells;
+    //         if (i < (gd.icells/2/pattern))
+    //             solar_evaporator_placement[ij] = 1;
+    //         elif (i > (gd.icells/pattern) && i < (gd.icells/pattern + gd.icells/2/pattern))
+    //             solar_evaporator_placement[ij] = 1;
+    //         elif (i > (gd.icells*2/3) && i < (gd.icells*2/pattern + gd.icells/2/pattern))
+    //             solar_evaporator_placement[ij] = 1;
+    //     }
+
+    // Generalized striped pattern
+    // const int num_stripes = 3; // Number of stripes
+    // const int stripe_width = gd.icells / (2 * num_stripes); // Width of each stripe
+
+    // for (int j = 0; j < gd.jcells; j++)
+    //     for (int i = 0; i < gd.icells; i++)
+    //     {
+    //         const int ij = i + j * gd.icells;
+
+    //         for (int s = 0; s < num_stripes; s++)
+    //         {
+    //             int start = s * gd.icells / num_stripes;
+    //             int end = start + stripe_width;
+
+    //             if (i >= start && i < end)
+    //             {
+    //                 solar_evaporator_placement[ij] = 1;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // Generalized striped pattern with domain extent limit
+    const int num_stripes = 1;  // Number of stripes
+    const double stripe_extent = 1.;  // Fraction of domain covered (0.0 to 1.0)
+    const int stripe_limit = gd.icells * stripe_extent;  // Upper limit for stripes
+    // const int stripe_width = stripe_limit / (2 * num_stripes);  // Width of each stripe
+    const int stripe_width = stripe_limit;
+
+    for (int j = 0; j < gd.jcells; j++)
+        for (int i = 0; i < gd.icells; i++)
+        {
+            const int ij = i + j * gd.icells;
+
+            if (i >= stripe_limit)  // Skip cells beyond the specified extent
+                continue;
+
+            for (int s = 0; s < num_stripes; s++)
+            {
+                int start = s * stripe_limit / num_stripes;
+                int end = start + stripe_width;
+
+                if (i >= start && i < end)
+                {
+                    solar_evaporator_placement[ij] = 1;
+                    break;
+                }
+            }
+        }
+
+
+
+
     // 
 
     ///////////////////////////////
@@ -1198,11 +1285,17 @@ void Boundary_surface_solar<TF>::exec(
         Constants::Lv<TF>,                              // const float lv, //(latent heat of vaporization)
         thermo.get_basestate_vector("exnerh")[gd.kstart],                 // const TF ex, //(exner reference)
         exnref[gd.kstart],                 // const TF ex, //(exner reference)
+        
         tmp1->flux_bot.data(), //ra.data(),  
         ustar.data(), 
         obuk.data(),
         z0h.data(), 
         gd.z[gd.kstart],
+
+        solar_evaporator_placement.data(),
+
+        // fields.mp.at("u")->fld.data(),
+        // fields.mp.at("v")->fld.data(),
 
         gd.istart, gd.iend,
         gd.jstart, gd.jend,
