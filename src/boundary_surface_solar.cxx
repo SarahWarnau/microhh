@@ -374,6 +374,9 @@ namespace
 
     template<typename TF>
     void get_surface_values_solar(
+        // put solar_evaporator_placement here
+        // const bool* const restrict solar_evaporator_placement,
+
         // Parameters for temperature
         TF* thl_fld_bot, //(potential temperature at the surface)
         TF* qt_fld_bot, //(specific humidity at the surface)
@@ -414,8 +417,9 @@ namespace
     )
     {   
         // same as this file, l927
+        // printf("Swar 1: %E, %E, %E\n", ra[4], ustar[4], obuk[4]);
         bsk::calc_ra(ra, ustar, obuk, z0h, zsl, istart, iend, jstart, jend, icells);
-
+        // printf("Swar 2: %E, %E, %E\n", ra[4], ustar[4], obuk[4]);
         // int center_i_start = icells / 4;
         // int center_i_end = 3 * icells / 4;
         // int center_j_start = jcells / 4;
@@ -432,13 +436,13 @@ namespace
 
         
 
-        for (int j=0; j<jcells; j++)
-            for (int i=0; i<icells; i++)
+        for (int j=jstart; j<jend; j++)
+            for (int i=istart; i<iend; i++)
             {
+                // if solar_evaporator_placement[ij] is False: skip the calculation and continue to next gridcell.
+                
                 const int ij = i + j*icells;
                 const int ijk = i + j*icells + kstart*icells*jcells;
-                // TF ra_ij = ra[ij];
-                TF ra_ij = 20.; 
 
                 if (solar_evaporator_placement[ij] == 1)
                 {
@@ -452,6 +456,9 @@ namespace
                     // printf("Swar: ra %E, ustar %E, obuk %E, z0h %E, zsl %E\n", ra[ij], ustar[ij], obuk[ij], z0h[ij], zsl);
                     // TF ra = ra_fld[ij];             //(aerodynamic resistance, keep constant for now)
                     
+                    TF ra_ij = ra[ij];
+                    // TF ra_ij = 100.; 
+                    // TF ra_ij = 50.;
 
                     // if (ra_ij <= 1.) {
                     //     ra_ij = 1;
@@ -1066,14 +1073,6 @@ void Boundary_surface_solar<TF>::exec(
             const int ij = i + j*gd.icells;
             rnetin[ij] = TF(1000.);
         }
-
-    // std::vector<TF> ra(gd.ijcells);
-    // for (int j=0; j<gd.jcells; j++)
-    //     for (int i=0; i<gd.icells; i++)
-    //     {
-    //         const int ij = i + j*gd.icells;
-    //         ra[ij] = TF(250.);
-    //     }
 
     std::vector<TF> rs(gd.ijcells);
     for (int j=0; j<gd.jcells; j++)
