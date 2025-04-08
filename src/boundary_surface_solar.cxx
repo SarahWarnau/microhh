@@ -621,6 +621,40 @@ void Boundary_surface_solar<TF>::create(
         Stats<TF>& stats, Column<TF>& column,
         Cross<TF>& cross, Timeloop<TF>& timeloop)
 {
+    ////////////////////////////////////////////////////
+    // Read in the binary containing the tech location.
+    Field3d_io<TF> field3d_io(master, grid);
+
+    // Read the solar evaporator placement map map
+    char filename[256] = "solar_evaporator_placement.0000000";
+    auto tmp = fields.get_tmp();
+    master.print_message("Loading \"%s\" ... ", filename);
+
+    if (field3d_io.load_xy_slice(solar_evaporator_placement.data(), tmp->fld.data(), filename))
+    {
+        master.print_message("FAILED\n");
+        throw std::runtime_error("Reading input solar_evaporator_placement field failed");
+    }
+    else
+    {
+        master.print_message("OK\n");
+    }
+
+    fields.release_tmp(tmp);
+    boundary_cyclic.exec_2d(solar_evaporator_placement.data());
+
+    // // Test if file is correctly read
+    // auto& gd = grid.get_grid_data();
+    // for (int j=gd.jstart; j<gd.jend; j++)
+    //     for (int i=gd.istart; i<gd.iend; i++)
+    //     {
+    //         const int ij = i + j*gd.icells;
+    //         printf("Swar: solar_evaporator_placement %E\n", solar_evaporator_placement[ij]);
+    //     }
+
+    ///////////////////////////////////////////////
+
+
     const std::string group_name = "default";
     Boundary<TF>::process_time_dependent(input, input_nc, timeloop);
     Boundary<TF>::process_inflow(input, input_nc);
@@ -672,6 +706,10 @@ void Boundary_surface_solar<TF>::create_cold_start(Netcdf_handle& input_nc)
 template<typename TF>
 void Boundary_surface_solar<TF>::init(Input& inputin, Thermo<TF>& thermo, const Sim_mode sim_mode)
 {
+
+    // Swar solar evaporator placement
+    solar_evaporator_placement.resize(grid.get_grid_data().ijcells);
+
     // 1. Process the boundary conditions now all fields are registered.
     process_bcs(inputin);
 
@@ -1083,43 +1121,29 @@ void Boundary_surface_solar<TF>::exec(
             rs[ij] = TF(0.);
         }
 
-    std::vector<TF> solar_evaporator_placement(gd.ijcells);
-    std::fill(solar_evaporator_placement.begin(), solar_evaporator_placement.end(), 0);
     
-    // // Half domain
-    // for (int j=0; j<gd.jcells; j++)
-    //     for (int i=0; i<(gd.icells/2); ++i)
-    //     {
-    //         const int ij = i +j*gd.icells;
-    //         solar_evaporator_placement[ij] = 1;
-    //     }
+    
 
-    // // 1/3 domain striped pattern
-    // const int pattern = 3;
-    // for (int j=0; j<gd.jcells; j++)
-    //     for (int i=0; i<gd.icells; i++)
-    //     {
-    //         const int ij = i + j*gd.icells;
-    //         if (i < (gd.icells/2/pattern))
-    //             solar_evaporator_placement[ij] = 1;
-    //         elif (i > (gd.icells/pattern) && i < (gd.icells/pattern + gd.icells/2/pattern))
-    //             solar_evaporator_placement[ij] = 1;
-    //         elif (i > (gd.icells*2/3) && i < (gd.icells*2/pattern + gd.icells/2/pattern))
-    //             solar_evaporator_placement[ij] = 1;
-    //     }
-
-    // Generalized striped pattern
-    // const int num_stripes = 3; // Number of stripes
-    // const int stripe_width = gd.icells / (2 * num_stripes); // Width of each stripe
+    // std::vector<TF> solar_evaporator_placement(gd.ijcells);
+    // std::fill(solar_evaporator_placement.begin(), solar_evaporator_placement.end(), 0);
+    // // Generalized striped pattern with domain extent limit
+    // const int num_stripes = 3;  // Number of stripes
+    // const double stripe_extent = 1.;  // Fraction of domain covered (0.0 to 1.0)
+    // const int stripe_limit = gd.icells * stripe_extent;  // Upper limit for stripes
+    // const int stripe_width = stripe_limit / (2 * num_stripes);  // Width of each stripe
+    // // const int stripe_width = stripe_limit;
 
     // for (int j = 0; j < gd.jcells; j++)
     //     for (int i = 0; i < gd.icells; i++)
     //     {
     //         const int ij = i + j * gd.icells;
 
+    //         if (i >= stripe_limit)  // Skip cells beyond the specified extent
+    //             continue;
+
     //         for (int s = 0; s < num_stripes; s++)
     //         {
-    //             int start = s * gd.icells / num_stripes;
+    //             int start = s * stripe_limit / num_stripes;
     //             int end = start + stripe_width;
 
     //             if (i >= start && i < end)
@@ -1129,33 +1153,6 @@ void Boundary_surface_solar<TF>::exec(
     //             }
     //         }
     //     }
-    // Generalized striped pattern with domain extent limit
-    const int num_stripes = 1;  // Number of stripes
-    const double stripe_extent = 1.;  // Fraction of domain covered (0.0 to 1.0)
-    const int stripe_limit = gd.icells * stripe_extent;  // Upper limit for stripes
-    // const int stripe_width = stripe_limit / (2 * num_stripes);  // Width of each stripe
-    const int stripe_width = stripe_limit;
-
-    for (int j = 0; j < gd.jcells; j++)
-        for (int i = 0; i < gd.icells; i++)
-        {
-            const int ij = i + j * gd.icells;
-
-            if (i >= stripe_limit)  // Skip cells beyond the specified extent
-                continue;
-
-            for (int s = 0; s < num_stripes; s++)
-            {
-                int start = s * stripe_limit / num_stripes;
-                int end = start + stripe_width;
-
-                if (i >= start && i < end)
-                {
-                    solar_evaporator_placement[ij] = 1;
-                    break;
-                }
-            }
-        }
 
 
 
@@ -1163,7 +1160,7 @@ void Boundary_surface_solar<TF>::exec(
     // 
 
     ///////////////////////////////
-    // for (int l=0; l<3; l++) {
+
 
 
 

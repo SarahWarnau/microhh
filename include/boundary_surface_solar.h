@@ -115,6 +115,9 @@ class Boundary_surface_solar : public Boundary<TF>
         TF ustarin;
 
         // Sarah: put parameter arrays here, for first tests
+        std::vector<TF> solar_evaporator_placement;
+
+
         std::vector<TF> rnetin;
         std::vector<TF> ra;
         std::vector<TF> rs;
