@@ -40,28 +40,6 @@ class Boundary_surface_solar : public Boundary<TF>
         void create(Input&, Netcdf_handle&, Stats<TF>&, Column<TF>&, Cross<TF>&, Timeloop<TF>&);
         void set_values();
 
-        // // Solar evaporator surface values
-        // void get_surface_values_solar(
-        //     TF* thl_fld_bot, //(potential temperature at the surface)
-        //     TF* qt_fld_bot, //(specific humidity at the surface)
-        //     TF* rnet_fld_bot, //(net radiation at the surface)
-        //     TF* thl_fld, //(temperature of the atmosphere just above the surface)
-        //     TF* qt_fld, //(specific humidity just above the surface)
-        //     TF* rho_air_fld, //(air density previous timestep)
-        //     TF* p_surf_fld, //(surface pressure)
-        //     TF* ra_fld, //(aerodynamic resistance, keep constant for now)
-        //     TF* rs_fld, //(surface resistance, constant, set to 0)
-        //     const TF epsilon, //(emissivity of the surface)
-        //     const TF cp, //(specific heat capacity of air)
-        //     const TF rd, //(specific gas constant for dry air)
-        //     const TF rv, //(specific gas constant for water vapor)
-        //     const TF sigma, //(Stefan-Boltzmann constant)
-        //     const TF lv, //(latent heat of vaporization)
-        //     const int istart, const int iend,
-        //     const int jstart, const int jend,
-        //     const int icells, const int jcells
-        // );
-
         const std::vector<TF>& get_z0m()  const { return z0m; };
         const std::vector<TF>& get_dudz() const { return dudz_mo; }
         const std::vector<TF>& get_dvdz() const { return dvdz_mo; }
@@ -114,9 +92,7 @@ class Boundary_surface_solar : public Boundary<TF>
 
         TF ustarin;
 
-        // Sarah: put parameter arrays here, for first tests
         std::vector<TF> solar_evaporator_placement;
-
 
         std::vector<TF> rnetin;
         std::vector<TF> ra;
