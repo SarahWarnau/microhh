@@ -94,6 +94,9 @@ class Boundary_surface_solar : public Boundary<TF>
 
         std::vector<TF> solar_evaporator_placement;
 
+        TF rnetinin;
+        TF rsin;
+
         std::vector<TF> rnetin;
         std::vector<TF> ra;
         std::vector<TF> rs;

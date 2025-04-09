@@ -597,6 +597,10 @@ void Boundary_surface_solar<TF>::init(Input& inputin, Thermo<TF>& thermo, const 
 template<typename TF>
 void Boundary_surface_solar<TF>::process_input(Input& inputin, Thermo<TF>& thermo)
 {
+    // Get the solar evaporator specific input
+    rnetinin = inputin.get_item<TF>("boundary", "rnetin", "", 1000.);
+    rsin = inputin.get_item<TF>("boundary", "rs", "", 0.);
+
     // Switch between heterogeneous and homogeneous z0's
     sw_constant_z0 = inputin.get_item<bool>("boundary", "swconstantz0", "", true);
 
@@ -967,13 +971,12 @@ void Boundary_surface_solar<TF>::exec(
 {
     auto& gd = grid.get_grid_data();
 
-    //Sarah: rnetin and rs need to be moved to the input file
     std::vector<TF> rnetin(gd.ijcells);
     for (int j=0; j<gd.jcells; j++)
         for (int i=0; i<gd.icells; i++)
         {
             const int ij = i + j*gd.icells;
-            rnetin[ij] = TF(1000.);
+            rnetin[ij] = rnetinin;
         }
 
     std::vector<TF> rs(gd.ijcells);
@@ -981,7 +984,7 @@ void Boundary_surface_solar<TF>::exec(
         for (int i=0; i<gd.icells; i++)
         {
             const int ij = i + j*gd.icells;
-            rs[ij] = TF(0.);
+            rs[ij] = rsin;
         }
 
     // Update roughness lengths when Charnock relation is used,
