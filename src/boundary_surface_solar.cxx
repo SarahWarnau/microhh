@@ -1092,7 +1092,7 @@ void Boundary_surface_solar<TF>::exec(
         thermo.get_basestate_vector("ph")[gd.kstart], 
         pref[gd.kstart],                 
         rs.data(),                     
-        1.,                         
+        TF(1.),
         Constants::cp<TF>,             
         Constants::Rd<TF>,                    
         Constants::Rv<TF>,                    
